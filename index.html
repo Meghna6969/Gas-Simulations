@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gas Simulator</title>
+    <link rel="stylesheet" href="style.css">
+    <script type="importmap">
+            {
+                "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+        </script>
+        <script type="module" src="./script.js"></script>
+</head>
+<body>
+    <div id="canvas-container"></div>
+    <div class="control-panel">
+        <div class="slidercontainer">
+            <label for="amountOfParticles">Amount of particles </label>
+            <input type="range" min="1" max="200" value="50" class="slider" id="amountOfParticles">
+        </div>
+        <div class="slidercontainer">
+            <label for="myRange">Temper: </label>
+            <input type="range" min="1" max="100" value="50" class="slider" id="myRange">
+        </div>
+        <div class="slidercontainer">
+            <label for="myRange">Value: </label>
+            <input type="range" min="1" max="100" value="50" class="slider" id="myRange">
+        </div>
+    </div>
+</body>
+
+</html>
