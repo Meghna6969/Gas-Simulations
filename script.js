@@ -5,22 +5,34 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 let scene, renderer, camera, controls;
 let allParticles = [];
 const boxSize = 3;
-const baseSpeed = 0.05;
-const boxBounds = boxSize / 2;
+const baseSpeed = 0.015;
+let currentBoxBounds = boxSize / 2;
+const particleRadius = 0.1;
+let container;
+let containerVolume;
+let targetSpeedMultiplier = 1;
+let currentSpeedMultiplier = 1.0;
+const speedTransitionRate = 0.0009;
 
 const amountParticlesSlider = document.getElementById('amountOfParticles');
 const tempSlider = document.getElementById('temperatureChange');
+const volumeSlider = document.getElementById('volume');
 
+tempSlider.addEventListener('mouseup', function() {
+    tempSlider.value = 0;
+    targetSpeedMultiplier = 1;
+    updateHeatOrCold(0);
+});
+volumeSlider.addEventListener('input', function(){
+    const newWidth = parseFloat(volumeSlider.value);
+    updateContainer(newWidth);
+})
 amountParticlesSlider.addEventListener('input', function() {
     createParticles(parseFloat(amountParticlesSlider.value));
 });
 tempSlider.addEventListener('input', function() {
     const particleVelocity = parseFloat(tempSlider.value);
-    const speedMultiplier = Math.pow(2, particleVelocity) * 0.2;
-    allParticles.forEach(particle => {
-        const direction = particle.velocity.clone().normalize();
-        particle.velocity.copy(direction.multiplyScalar(baseSpeed * speedMultiplier));
-    });
+    targetSpeedMultiplier = Math.pow(2, particleVelocity);
     updateHeatOrCold(particleVelocity);
 });
 
@@ -47,8 +59,8 @@ function setupObjects() {
     const boxGeometry = new THREE.BoxGeometry(boxSize, boxSize, boxSize);
     const edgeGeo = new THREE.EdgesGeometry(boxGeometry);
     const lineMaterial = new THREE.LineBasicMaterial({ color: 0xffffff });
-    const lineCube = new THREE.LineSegments(edgeGeo, lineMaterial);
-    scene.add(lineCube);
+    container = new THREE.LineSegments(edgeGeo, lineMaterial);
+    scene.add(container);
 }
 function setupLights(){
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
@@ -60,7 +72,7 @@ function setupLights(){
 function createParticles(count){
     allParticles.forEach(p => scene.remove(p.mesh));
     allParticles = [];
-    const particleGeometry = new THREE.SphereGeometry(0.1, 16, 16);
+    const particleGeometry = new THREE.SphereGeometry(particleRadius, 16, 16);
     const particleMaterial = new THREE.MeshPhongMaterial({
         color: 0x00ff88
     });
@@ -76,20 +88,45 @@ function createParticles(count){
     }
 }
 function updateParticles(){
-    allParticles.forEach(particle => {
-        particle.mesh.position.add(particle.velocity);
+    currentSpeedMultiplier += (targetSpeedMultiplier - currentSpeedMultiplier) * speedTransitionRate;
 
-        if(Math.abs(particle.mesh.position.x) > boxBounds - 0.1){
+    for(let i = 0; i < allParticles.length; i++){
+        for(let j = i + 1; j < allParticles.length; j++){
+            const p1 = allParticles[i];
+            const p2 = allParticles[j];
+
+            const dist = p1.mesh.position.distanceTo(p2.mesh.position);
+            if(dist < particleRadius * 2){
+                const tempVel = p1.velocity.clone();
+                p1.velocity.copy(p2.velocity);
+                p2.velocity.copy(tempVel);
+
+                const overlap = particleRadius * 2 - dist;
+                const seperateOverlaps = p1.mesh.position.clone().sub(p2.mesh.position).normalize().multiplyScalar(overlap / 2);
+                p1.mesh.position.add(seperateOverlaps);
+                p2.mesh.position.sub(seperateOverlaps);
+            }
+        }
+    }
+    allParticles.forEach(particle => {
+       const direction = particle.velocity.clone().normalize();
+       const speed = baseSpeed * currentSpeedMultiplier;
+       particle.velocity.copy(direction.multiplyScalar(speed));
+
+       particle.mesh.position.add(particle.velocity);
+
+        if(Math.abs(particle.mesh.position.x) > currentBoxBounds - 0.1){
             particle.velocity.x *= -1;
-            particle.mesh.position.x = Math.sign(particle.mesh.position.x) * (boxBounds - 0.1);
+            particle.mesh.position.x = Math.sign(particle.mesh.position.x) * (currentBoxBounds - 0.1);
         }
-        if(Math.abs(particle.mesh.position.y) > boxBounds - 0.1){
+        const staticBounds = boxSize / 2;
+        if(Math.abs(particle.mesh.position.y) > staticBounds - 0.1){
             particle.velocity.y *= -1;
-            particle.mesh.position.y = Math.sign(particle.mesh.position.y) * (boxBounds - 0.1);
+            particle.mesh.position.y = Math.sign(particle.mesh.position.y) * (staticBounds - 0.1);
         }
-        if(Math.abs(particle.mesh.position.z) > boxBounds - 0.1){
+        if(Math.abs(particle.mesh.position.z) > staticBounds - 0.1){
             particle.velocity.z *= -1;
-            particle.mesh.position.z = Math.sign(particle.mesh.position.z) * (boxBounds - 0.1);
+            particle.mesh.position.z = Math.sign(particle.mesh.position.z) * (staticBounds - 0.1);
         }
     });
 }
@@ -105,6 +142,23 @@ function updateHeatOrCold(intensity){
     }
     vignette.style.opacity = Math.abs(intensity) * 0.5;
     
+}
+function updateContainer(size){
+    container.scale.x = size / boxSize;
+    currentBoxBounds = size / 2;
+    allParticles.forEach(particle => {
+        if(Math.abs(particle.mesh.position.x) > currentBoxBounds - 0.1){
+            particle.mesh.position.x = Math.sign(particle.mesh.position.x) * (currentBoxBounds - 0.1);
+        }
+    })
+
+}
+function updateUIElements(){
+    const n = allParticles.length;
+    const T = currentSpeedMultiplier;
+    const V = parseFloat(volumeSlider.value) * boxSize * boxSize;
+
+    const pressure = (n * T) / V;
 }
 function animate() {
     requestAnimationFrame(animate);
