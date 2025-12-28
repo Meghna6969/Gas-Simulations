@@ -7,22 +7,28 @@ let allParticles = [];
 const boxSize = 3;
 const baseSpeed = 0.015;
 let currentBoxBounds = boxSize / 2;
-const particleRadius = 0.1;
+const particleRadius = 0.05;
 let container;
-let containerVolume;
+
 let targetSpeedMultiplier = 1;
 let currentSpeedMultiplier = 1.0;
 const speedTransitionRate = 0.0009;
+
+// Making everything physically accurate
+const R = 8.314; // Ideal Gas Constant
+const Moles_Per_Particle = 1.66e-23;
+const nmToMeters = 1e-9;
+const KELVIN_BASE = 273.15; 
 
 const amountParticlesSlider = document.getElementById('amountOfParticles');
 const tempSlider = document.getElementById('temperatureChange');
 const volumeSlider = document.getElementById('volume');
 
-tempSlider.addEventListener('mouseup', function() {
+/*tempSlider.addEventListener('mouseup', function() {
     tempSlider.value = 0;
     targetSpeedMultiplier = 1;
     updateHeatOrCold(0);
-});
+});*/
 volumeSlider.addEventListener('input', function(){
     const newWidth = parseFloat(volumeSlider.value);
     updateContainer(newWidth);
@@ -154,14 +160,27 @@ function updateContainer(size){
 
 }
 function updateUIElements(){
-    const n = allParticles.length;
-    const T = currentSpeedMultiplier;
+    const n = allParticles.length * Moles_Per_Particle;
+    const T = currentSpeedMultiplier * 293.15; // 293.15 is basically the room temperature and at no heat or cold its just going to be that
     const V = parseFloat(volumeSlider.value) * boxSize * boxSize;
 
-    const pressure = (n * T) / V;
+    const widthNM = parseFloat(volumeSlider.value) * 5;
+    const heightNM = boxSize * 5;
+    const depthNM = boxSize * 5;
+
+    const volume = (widthNM * nmToMeters) * (heightNM *nmToMeters) * (depthNM * nmToMeters);
+
+    const pressure = (n * R * T) / volume;
+    const pressureKPA = pressure / 1000;
+    const pressureATM = pressure / 101325;
+    //console.log(pressure);
+    document.getElementById('pressure-display').textContent = pressureATM.toFixed(3);
+    document.getElementById('temp-display').textContent = T.toFixed(0);
+    document.getElementById('particles-display').textContent = n.toExponential(2);
 }
 function animate() {
     requestAnimationFrame(animate);
+    updateUIElements();
     controls.update();
     updateParticles();
     renderer.render(scene, camera);
@@ -170,5 +189,5 @@ function animate() {
 setupThreejs();
 setupObjects();
 setupLights();
-createParticles(50);
+createParticles(parseFloat(amountParticlesSlider.value));
 animate();

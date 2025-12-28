@@ -20,13 +20,37 @@
 <body>
     <div id="canvas-container"></div>
     <div id="heat-or-cold"></div>
-    <div class="details-panel">
-        <h1>Temperature</h1>
+    <div class="time-controls-panel">
+        <button class="pause">||</button>
     </div>
+    <div class="details-panel">
+        <h1>Gas Simulator</h1>
+        <p>Simulate how gas interact and react based on different temperature, pressure, and volume</p>
+        <div class="stats-group">
+            <label class="displayLabels">Temperature</label>
+            <div class="value"><span id="temp-display">--</span>K</div>
+        </div>
+        <div class="stats-group">
+            <label  class="displayLabels">Pressure</label>
+            <div class="value"><span id="pressure-display">--</span>atm</div>
+        </div>
+        <div class="stats-group">
+            <label class="displayLabels">Particles</label>
+            <div class="value"><span id="particles-display">--</span>moles</div>
+        </div>
+        <div class="checkbox-group">
+            <label for="collisionCounter">
+                <label>Collision Counter</label>
+                <input type="checkbox" id="collisionCounter">
+            </label>
+        </div>
+        </div>
+    </div>
+
     <div class="control-panel">
         <div class="verticalContainer">
             <label for="amountOfParticles">Amount of particles </label>
-            <input type="range" min="1" max="200" value="50" class="slider" id="amountOfParticles">
+            <input type="range" min="1" max="500" value="150" class="slider" id="amountOfParticles">
         </div>
         <div class="horizontalContainer">
             <label for="temperatureChange">🧊 Cool</label>
@@ -37,7 +61,7 @@
             <label for="volume">Volume</label>
             <input type="range" min="2" max="10" value="3" class="slider" id="volume">
         </div>
-        
+
     </div>
 </body>
 
