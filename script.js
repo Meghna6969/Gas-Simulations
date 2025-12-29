@@ -10,10 +10,14 @@ let isPaused = false;
 let elaspedTime = 0;
 const boxSize = 3;
 let containerPressureIntensityIndicator = 0;
+let containerGlowIntensity = 0;
 const baseSpeed = 0.015;
 let currentBoxBounds = boxSize / 2;
 const particleRadiusH = 0.05;
 const particleRadiusL = 0.03;
+let wallCollisionCount = 0;
+let isCountingCollisions = false;
+let collisionTimer = 0;
 
 // Making everything physically accurate
 const R = 8.314; // Ideal Gas Constant
@@ -34,6 +38,12 @@ const amountParticlesSliderH = document.getElementById('amountOfParticlesH');
 const amountParticlesSliderL = document.getElementById('amountOfParticlesL');
 const tempSlider = document.getElementById('temperatureChange');
 const volumeSlider = document.getElementById('volume');
+const collisionsCheckBox = document.getElementById('collisionCounter');
+const collisionPanel = document.querySelector('.collision-controls-panel');
+const wallCollisionCounterText = document.querySelector('.collision-controls-panel h3');
+const wallCollisionTimer = document.getElementById('time-elapsed-coll');
+const collisionReset = document.getElementById('resetCollBtn');
+const 
 
 tempSlider.addEventListener('mouseup', function () {
     tempSlider.value = 0;
@@ -77,7 +87,18 @@ document.getElementById('resetSpecificTemps').addEventListener('click', function
     document.getElementById('specificTempInput').value = ROOM_TEMP;
     updateHeatOrCold(0);
 });
-
+document.getElementById('startCounting').addEventListener('click', () => {
+    isCountingCollisions = true;
+    wallCollisionCount = 0;
+    collisionTimer = 0;
+});
+document.getElementById('stopCounting').addEventListener('click', () => {
+    isCountingCollisions = false;
+});
+document.getElementById('resetCollBtn').addEventListener('click', () => {
+    wallCollisionCount = 0;
+    collisionTimer = 0;
+});
 // Temperature slider type
 document.querySelectorAll('input[name="tempMode"]').forEach(radio => {
     radio.addEventListener('change', (e) => {
@@ -219,15 +240,13 @@ function updateParticles() {
         const radius = particle.radius;
         // Kinda improvising here; I know the actual force equation is P*A, but its only for visualization
         const impactForce = speed * massFactor;
-        totalImpactForce += impactForce;
-
-        
         // Hit to the x wall
         if (Math.abs(particle.mesh.position.x) > currentBoxBounds - radius) {
             particle.velocity.x *= -1;
             particle.mesh.position.x = Math.sign(particle.mesh.position.x) * (currentBoxBounds - radius);
             wallHitsPerFrame++;
             totalImpactForce += impactForce;
+            if(isCountingCollisions) wallCollisionCount++;
         }
         //This to the y wall
         const staticBounds = boxSize / 2;
@@ -236,17 +255,22 @@ function updateParticles() {
             particle.mesh.position.y = Math.sign(particle.mesh.position.y) * (staticBounds - radius);
             wallHitsPerFrame++;
             totalImpactForce += impactForce;
+            if(isCountingCollisions) wallCollisionCount++;
         }
         // This to the z wall
         if (Math.abs(particle.mesh.position.z) > staticBounds - radius) {
             particle.velocity.z *= -1;
             particle.mesh.position.z = Math.sign(particle.mesh.position.z) * (staticBounds - radius);
             wallHitsPerFrame++;
+            if(isCountingCollisions) wallCollisionCount++;
         }
 
         // Some visual feedback for pressure so users know how the pressure is drastically increased
         if(wallHitsPerFrame > 0){
-            containerPressureIntensityIndicator = Math.min(1, containerPressureIntensityIndicator + wallHitsPerFrame * 0.15);
+            const wallCollisionIntensity = Math.log10(wallHitsPerFrame + 1) * 0.3;
+            const forceIntensity = totalImpactForce * 0.5;
+            containerPressureIntensityIndicator = Math.min(1, containerPressureIntensityIndicator + wallCollisionIntensity + forceIntensity);
+            containerGlowIntensity = Math.min(1, containerGlowIntensity + containerPressureIntensityIndicator * 2);
         }
     });
 }
@@ -326,8 +350,32 @@ function animate() {
     // Maybe try something pulsing maybe like the more the particles hit the bigger the pulse
     // Like those music visualalizers; <- Work on this tomorrow GN.
     containerGlowIntensity *= 0.90;
-    const targetColor = new THREE.Color(0xffffff).lerp(new THREE.Color(0xff0000), containerPressureIntensityIndicator);
+    let targetColor;
+    if(containerPressureIntensityIndicator < 0.3){
+        targetColor = new THREE.Color(0xffffff).lerp(new THREE.Color(0xffff00), containerPressureIntensityIndicator * 3.33);
+    }
+    else if(containerPressureIntensityIndicator < 0.6){
+        targetColor = new THREE.Color(0xffff00).lerp(new THREE.Color(0xff8800), (containerPressureIntensityIndicator - 0.3) * 3.33);
+    }else{
+        targetColor = new THREE.Color(0xff8800).lerp(new THREE.Color(0xff0000), (containerPressureIntensityIndicator - 0.6) * 2.5);
+    }
     container.material.color.copy(targetColor);
+    container.material.opacity = 0.5 + (containerGlowIntensity * 0.5);
+
+    if(collisionsCheckBox.checked){
+        collisionPanel.style.display = 'flex';
+    }
+    else{
+        collisionPanel.style.display = 'none';
+    }
+    wallCollisionCounterText.textContent = wallCollisionCount;
+    if(isCountingCollisions && !isPaused){
+        collisionTimer += 0.016;
+    }
+    wallCollisionTimer.textContent = collisionTimer.toFixed(2);
+    if(isCountingCollisions){
+
+    }
 
     if (!isPaused) {
         updateParticles();
