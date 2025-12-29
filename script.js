@@ -9,6 +9,7 @@ let allParticles = [];
 let isPaused = false;
 let elaspedTime = 0;
 const boxSize = 3;
+let containerPressureIntensityIndicator = 0;
 const baseSpeed = 0.015;
 let currentBoxBounds = boxSize / 2;
 const particleRadiusH = 0.05;
@@ -59,8 +60,11 @@ volumeSlider.addEventListener('input', function () {
     updateContainer(newWidth);
 })
 amountParticlesSliderH.addEventListener('input', function () {
-    createParticles(parseFloat(amountParticlesSliderH.value));
+    createParticles(parseFloat(amountParticlesSliderH.value), 'heavy');
 });
+amountParticlesSliderL.addEventListener('input', function(){
+    createParticles(parseFloat(amountParticlesSliderL.value), 'light');
+})
 tempSlider.addEventListener('input', function () {
     const particleVelocity = parseFloat(tempSlider.value);
     targetSpeedMultiplier = Math.pow(2, particleVelocity);
@@ -120,7 +124,7 @@ function setupThreejs() {
 function setupObjects() {
     const boxGeometry = new THREE.BoxGeometry(boxSize, boxSize, boxSize);
     const edgeGeo = new THREE.EdgesGeometry(boxGeometry);
-    const lineMaterial = new THREE.LineBasicMaterial({ color: 0xffffff });
+    const lineMaterial = new THREE.LineBasicMaterial({ color: 0xffffff, linewidth: 5});
     container = new THREE.LineSegments(edgeGeo, lineMaterial);
     scene.add(container);
 }
@@ -132,7 +136,9 @@ function setupLights() {
     scene.add(directionLight);
 }
 function createParticles(count, type) {
-    if (type === 'heavy') {
+    const isHeavy = type === 'heavy';
+
+    if (isHeavy) {
         allParticlesH.forEach(p => scene.remove(p.mesh));
         allParticlesH = [];
     }
@@ -141,10 +147,11 @@ function createParticles(count, type) {
         allParticlesL = [];
     }
     // change in the velocity and physics logic
-    const isHeavy = type === 'heavy';
+    
     const radius = isHeavy ? particleRadiusH : particleRadiusL;
     const color = isHeavy ? 0xffd300 : 0xff0000;
     const massMultiplier = isHeavy ? 1.0 : 2.5;
+
     const particleGeometry = new THREE.SphereGeometry(radius, 16, 16);
     const particleMaterial = new THREE.MeshPhongMaterial({ color: color });
 
@@ -155,6 +162,7 @@ function createParticles(count, type) {
         const particle = {
             mesh: mesh,
             type: type,
+            radius:radius,
             velocity: new THREE.Vector3((Math.random() - 0.5) * 0.05 * massMultiplier, (Math.random() - 0.5) * 0.05 * massMultiplier, (Math.random() - 0.5) * 0.05 * massMultiplier),
             massMultiplier: massMultiplier
         };
@@ -197,25 +205,48 @@ function updateParticles() {
             }
         }
     }
+    let wallHitsPerFrame = 0;
+    let totalImpactForce = 0;
+
     allParticles.forEach(particle => {
+        const massFactor = particle.massMultiplier;
         const direction = particle.velocity.clone().normalize();
-        const speed = baseSpeed * currentSpeedMultiplier;
-        particle.velocity.copy(direction.multiplyScalar(speed));
+        const speed = baseSpeed * currentSpeedMultiplier * massFactor;
 
+        // Normalizing speed we dont need things flying off 
+        particle.velocity.normalize().multiplyScalar(speed);
         particle.mesh.position.add(particle.velocity);
+        const radius = particle.radius;
+        // Kinda improvising here; I know the actual force equation is P*A, but its only for visualization
+        const impactForce = speed * massFactor;
+        totalImpactForce += impactForce;
 
-        if (Math.abs(particle.mesh.position.x) > currentBoxBounds - 0.1) {
+        
+        // Hit to the x wall
+        if (Math.abs(particle.mesh.position.x) > currentBoxBounds - radius) {
             particle.velocity.x *= -1;
-            particle.mesh.position.x = Math.sign(particle.mesh.position.x) * (currentBoxBounds - 0.1);
+            particle.mesh.position.x = Math.sign(particle.mesh.position.x) * (currentBoxBounds - radius);
+            wallHitsPerFrame++;
+            totalImpactForce += impactForce;
         }
+        //This to the y wall
         const staticBounds = boxSize / 2;
-        if (Math.abs(particle.mesh.position.y) > staticBounds - 0.1) {
+        if (Math.abs(particle.mesh.position.y) > (staticBounds - radius)) {
             particle.velocity.y *= -1;
-            particle.mesh.position.y = Math.sign(particle.mesh.position.y) * (staticBounds - 0.1);
+            particle.mesh.position.y = Math.sign(particle.mesh.position.y) * (staticBounds - radius);
+            wallHitsPerFrame++;
+            totalImpactForce += impactForce;
         }
-        if (Math.abs(particle.mesh.position.z) > staticBounds - 0.1) {
+        // This to the z wall
+        if (Math.abs(particle.mesh.position.z) > staticBounds - radius) {
             particle.velocity.z *= -1;
-            particle.mesh.position.z = Math.sign(particle.mesh.position.z) * (staticBounds - 0.1);
+            particle.mesh.position.z = Math.sign(particle.mesh.position.z) * (staticBounds - radius);
+            wallHitsPerFrame++;
+        }
+
+        // Some visual feedback for pressure so users know how the pressure is drastically increased
+        if(wallHitsPerFrame > 0){
+            containerPressureIntensityIndicator = Math.min(1, containerPressureIntensityIndicator + wallHitsPerFrame * 0.15);
         }
     });
 }
@@ -251,7 +282,7 @@ function updateContainer(size) {
         if (Math.abs(particle.mesh.position.x) > currentBoxBounds - 0.1) {
             particle.mesh.position.x = Math.sign(particle.mesh.position.x) * (currentBoxBounds - 0.1);
         }
-    })
+    });
 
 }
 function updateUIElements() {
@@ -291,6 +322,13 @@ function updateTimeDisplay() {
 }
 function animate() {
     requestAnimationFrame(animate);
+    containerPressureIntensityIndicator *= 0.8;
+    // Maybe try something pulsing maybe like the more the particles hit the bigger the pulse
+    // Like those music visualalizers; <- Work on this tomorrow GN.
+    containerGlowIntensity *= 0.90;
+    const targetColor = new THREE.Color(0xffffff).lerp(new THREE.Color(0xff0000), containerPressureIntensityIndicator);
+    container.material.color.copy(targetColor);
+
     if (!isPaused) {
         updateParticles();
         document.getElementById('stepBtn').disabled = true;
