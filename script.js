@@ -4,31 +4,54 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 // Global Variables
 let scene, renderer, camera, controls;
 let allParticles = [];
+let isPaused = false;
+let elaspedTime = 0;
 const boxSize = 3;
 const baseSpeed = 0.015;
 let currentBoxBounds = boxSize / 2;
 const particleRadius = 0.05;
-let container;
-
-let targetSpeedMultiplier = 1;
-let currentSpeedMultiplier = 1.0;
-const speedTransitionRate = 0.0009;
 
 // Making everything physically accurate
 const R = 8.314; // Ideal Gas Constant
 const Moles_Per_Particle = 1.66e-23;
 const nmToMeters = 1e-9;
-const KELVIN_BASE = 273.15; 
+const ROOM_TEMP = 293.15; 
+
+
+let container;
+let tempMode = "relative";
+let targetSpecificTemp = ROOM_TEMP; // Room temperature heat
+
+let targetSpeedMultiplier = 1;
+let currentSpeedMultiplier = 1.0;
+const speedTransitionRate = 0.0009;
+
+
 
 const amountParticlesSlider = document.getElementById('amountOfParticles');
 const tempSlider = document.getElementById('temperatureChange');
 const volumeSlider = document.getElementById('volume');
 
-/*tempSlider.addEventListener('mouseup', function() {
+tempSlider.addEventListener('mouseup', function() {
     tempSlider.value = 0;
     targetSpeedMultiplier = 1;
     updateHeatOrCold(0);
-});*/
+});
+document.getElementById('pauseBtn').addEventListener('click', () => {
+    isPaused = !isPaused;
+    document.getElementById('pauseBtn').textContent = isPaused ? '▶' : '||';
+});
+document.getElementById('stepBtn').addEventListener('click', () => {
+    if(isPaused){
+        updateParticles();
+        elaspedTime += 0.01;
+        updateTimeDisplay();
+    }
+});
+document.getElementById('resetBtn').addEventListener('click', () => {
+    elaspedTime = 0;
+    updateTimeDisplay();
+})
 volumeSlider.addEventListener('input', function(){
     const newWidth = parseFloat(volumeSlider.value);
     updateContainer(newWidth);
@@ -41,7 +64,34 @@ tempSlider.addEventListener('input', function() {
     targetSpeedMultiplier = Math.pow(2, particleVelocity);
     updateHeatOrCold(particleVelocity);
 });
+document.getElementById('resetSpecificTemps').addEventListener('input', function(){
+    targetSpecificTemp 
+})
 
+// Temperature slider type
+document.querySelectorAll('input[name="tempMode"]').forEach(radio => {
+    radio.addEventListener('change', (e) => {
+        tempMode = e.target.value;
+        const relativeSlider = document.getElementById('relative-temp-group');
+        const specificSlider = document.getElementById('specific-temp-group');
+
+        if(tempMode === 'relative'){
+            relativeSlider.style.display = 'flex';
+            specificSlider.style.display = 'none';
+            targetSpeedMultiplier = Math.pow(2, parseFloat(tempSlider.value));
+        }
+        else{
+            relativeSlider.style.display = 'none';
+            specificSlider.style.display = 'flex';
+            updateSpecificTemp(parseFloat(document.getElementById('specificTempSlider').value));
+        }
+    })
+});
+function updateSpecificTemp(kelvin){
+    targetSpecificTemp = kelvin;
+    updateHeatOrCold(kelvin);
+    targetSpeedMultiplier = kelvin / ROOM_TEMP; //divide by room temp so that you get the multiplier required to reach a certain temp
+}
 function setupThreejs() {
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0x000000);
@@ -138,13 +188,25 @@ function updateParticles(){
 }
 function updateHeatOrCold(intensity){
     const vignette = document.getElementById('heat-or-cold');
+    const clariText = document.getElementById('clarificationText');
     //radial-gradient(circle at center, transparent 10%, rgba(0, 123, 255, 0.3), transparent 50%);
     //radial-gradient(circle at center, transparent 10%, rgba(255, 0, 0, 0.3), transparent 50%);
-    if(intensity > 0){
+    if(tempMode === 'relative'){
+        
+    }
+    if(targetSpeedMultiplier > 1){
         vignette.style.background = 'radial-gradient(circle at center, transparent 10%, rgba(255, 0, 0, 0.4), transparent 70%)';
+        clariText.style.color = 'red';
+        clariText.textContent = 'Heating the container!';
+    }
+    else if(targetSpeedMultiplier === 1){
+        clariText.style.color = 'white';
+        clariText.textContent = 'No change in temperature!';
     }
     else{
         vignette.style.background = 'radial-gradient(circle at center, transparent 10%, rgba(0, 123, 255, 0.4), transparent 70%)';
+        clariText.style.color = 'cyan';
+        clariText.textContent = 'Cooling the container!';
     }
     vignette.style.opacity = Math.abs(intensity) * 0.5;
     
@@ -161,8 +223,8 @@ function updateContainer(size){
 }
 function updateUIElements(){
     const n = allParticles.length * Moles_Per_Particle;
-    const T = currentSpeedMultiplier * 293.15; // 293.15 is basically the room temperature and at no heat or cold its just going to be that
-    const V = parseFloat(volumeSlider.value) * boxSize * boxSize;
+    let T = currentSpeedMultiplier * ROOM_TEMP;
+    //const V = parseFloat(volumeSlider.value) * boxSize * boxSize;
 
     const widthNM = parseFloat(volumeSlider.value) * 5;
     const heightNM = boxSize * 5;
@@ -178,16 +240,45 @@ function updateUIElements(){
     document.getElementById('temp-display').textContent = T.toFixed(0);
     document.getElementById('particles-display').textContent = n.toExponential(2);
 }
+function updateInputs(sliderId, inputId, callback){
+    const slider = document.getElementById(sliderId);
+    const input = document.getElementById(inputId);
+
+    slider.addEventListener('input', () => {
+        input.value = slider.value;
+        callback(parseFloat(slider.value))
+    });
+    input.addEventListener('input', () => {
+        slider.value = input.value;
+        callback(parseFloat(input.value));
+    });
+}
+function updateTimeDisplay(){
+    document.getElementById('time-elapsed').textContent = elaspedTime.toFixed(2);
+}
 function animate() {
     requestAnimationFrame(animate);
+    if(!isPaused){
+        updateParticles();
+        elaspedTime += 0.016;
+        updateTimeDisplay();
+    }
     updateUIElements();
     controls.update();
-    updateParticles();
     renderer.render(scene, camera);
 }
 
 setupThreejs();
 setupObjects();
 setupLights();
+updateInputs('amountOfParticles', 'particleNumDisplay', (val) => {
+    createParticles(val);
+});
+updateInputs('volume', 'volumeDisplay', (val) => {
+    updateContainer(val);
+});
+updateInputs('specificTempSlider', 'specificTempInput', (val) => {
+    updateSpecificTemp(val);
+});
 createParticles(parseFloat(amountParticlesSlider.value));
 animate();

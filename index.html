@@ -21,47 +21,75 @@
     <div id="canvas-container"></div>
     <div id="heat-or-cold"></div>
     <div class="time-controls-panel">
-        <button class="pause">||</button>
+        <div class="buttons-row">
+            <button id="pauseBtn" title="pause/play">||</button>
+            <button id="stepBtn" title="next frame">-></button>
+        </div>
+        <div class="time-display">Time: <span id="time-elapsed">0.00</span>s</div>
+        <button id="resetBtn" title="Reset Simulation">Reset time</button>
+        <h4 id="clarificationText">No change in temperature!</h4>
     </div>
     <div class="details-panel">
         <h1>Gas Simulator</h1>
         <p>Simulate how gas interact and react based on different temperature, pressure, and volume</p>
-        <div class="stats-group">
-            <label class="displayLabels">Temperature</label>
-            <div class="value"><span id="temp-display">--</span>K</div>
-        </div>
-        <div class="stats-group">
-            <label  class="displayLabels">Pressure</label>
-            <div class="value"><span id="pressure-display">--</span>atm</div>
-        </div>
-        <div class="stats-group">
-            <label class="displayLabels">Particles</label>
-            <div class="value"><span id="particles-display">--</span>moles</div>
-        </div>
+        <section class="panel-section">
+            <div class="stats-group">
+                <label class="displayLabels">Temperature</label>
+                <div class="value"><span id="temp-display">293</span>K</div>
+            </div>
+            <div class="stats-group">
+                <label class="displayLabels">Pressure</label>
+                <div class="value"><span id="pressure-display">0.00</span>atm</div>
+            </div>
+            <div class="stats-group">
+                <label class="displayLabels">Particles</label>
+                <div class="value"><span id="particles-display">0.00</span>mol</div>
+            </div>
+        </section>
+        <hr>
+        <section class="panel-section">
+            <div class="input-row">
+                <label for="amountOfParticles">Particles</label>
+                <div class="control-group">
+                    <input type="range" min="0" max="500" value="150" class="slider" id="amountOfParticles">
+                    <input type="number" class="manual-input" id="particleNumDisplay" value="3" step="0.1">
+                </div>
+            </div>
+            <div class="input-row">
+                <label for="volume">Volume (nm)</label>
+                <div class="control-group">
+                    <input type="range" min="2" max="10" value="3" step="0.1" class="slider" id="volume">
+                    <input type="number" class="manual-input" id="volumeDisplay" value="3" step="0.1">
+                </div>
+            </div>
+            <div class="temp-mode-selector">
+                <label><input type="radio" name="tempMode" value="relative" checked>Relative Heat</label>
+                <label><input type="radio" name="tempMode" value="specific">Specific Temp</label>
+            </div>
+            <div id="relative-temp-group" class="input-row">
+                <label>Relative</label>
+                <div class="control-group horizontal">
+                    <span>🧊</span>
+                    <input type="range" min="-2" max="2" value="0" step="0.1" class="slider" id="temperatureChange">
+                    <span>🔥</span>
+                </div>
+            </div>
+            <div id="specific-temp-group" class="input-row" style="display: none;">
+                <label>Target K</label>
+                <div class="control-group">
+                    <input type="range" min="30" max="2000" value="293" class="slider" id="specificTempSlider">
+                    <input type="number" class="manual-input" id="specificTempInput" value="293">
+                </div>
+                <button id="resetSpecificTemps">Reset (293K)</button>
+            </div>
+        </section>
+        <hr>
         <div class="checkbox-group">
-            <label for="collisionCounter">
-                <label>Collision Counter</label>
+            <lable for="collisionCounter">
                 <input type="checkbox" id="collisionCounter">
-            </label>
+                <span>Show Collision Counter</span>
+            </lable>
         </div>
-        </div>
-    </div>
-
-    <div class="control-panel">
-        <div class="verticalContainer">
-            <label for="amountOfParticles">Amount of particles </label>
-            <input type="range" min="1" max="500" value="150" class="slider" id="amountOfParticles">
-        </div>
-        <div class="horizontalContainer">
-            <label for="temperatureChange">🧊 Cool</label>
-            <input type="range" min="-2" max="2" value="0" step="0.1" class="slider" id="temperatureChange">
-            <label for="temperatureChange">🔥 Heat</label>
-        </div>
-        <div class="verticalContainer">
-            <label for="volume">Volume</label>
-            <input type="range" min="2" max="10" value="3" class="slider" id="volume">
-        </div>
-
     </div>
 </body>
 
