@@ -212,8 +212,19 @@ input[type="checkbox"]{
     padding: 0 15px;
     border-radius: 25px;
     font-weight: bold;
+    cursor: pointer;
     font-size: 14px;
     background: rgba(255, 216, 98, 0.9);
     border: 1px solid rgba(255, 255, 255, 0.5);
     transition: transform 0.1s, background 0.2s;
+}
+#resetSpecificTemps:hover{
+    background: rgba(255, 216, 98, 1);
+    transform: scale(1.05);
+}
+#stepBtn:disabled {
+    cursor: not-allowed;
+    background-color: #CCCCCC;
+    opacity: 0.6;
+    pointer-events: none;
 }

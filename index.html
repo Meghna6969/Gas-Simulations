@@ -42,17 +42,28 @@
                 <div class="value"><span id="pressure-display">0.00</span>atm</div>
             </div>
             <div class="stats-group">
-                <label class="displayLabels">Particles</label>
-                <div class="value"><span id="particles-display">0.00</span>mol</div>
+                <label class="displayLabels">Heavy Particles</label>
+                <div class="value"><span id="heavy-particles-display">0.00</span>mol</div>
+            </div>
+            <div class="stats-group">
+                <label class="displayLabels">Light Particles</label>
+                <div class="value"><span id="light-particles-display">0.00</span>mol</div>
             </div>
         </section>
         <hr>
         <section class="panel-section">
             <div class="input-row">
-                <label for="amountOfParticles">Particles</label>
+                <label for="amountOfParticlesH"><span style="font-size: 1.25em;">🟡 </span>Heavy Particles</label>
                 <div class="control-group">
-                    <input type="range" min="0" max="500" value="150" class="slider" id="amountOfParticles">
-                    <input type="number" class="manual-input" id="particleNumDisplay" value="3" step="0.1">
+                    <input type="range" min="0" max="500" value="150" class="slider" id="amountOfParticlesH">
+                    <input type="number" class="manual-input" id="particleNumDisplayH" value="150" step="0.1">
+                </div>
+            </div>
+            <div class="input-row">
+                <label for="amountOfParticlesL"><span style="font-size: 1em;">🔴</span> Light Particles</label>
+                <div class="control-group">
+                    <input type="range" min="0" max="500" value="0" class="slider" id="amountOfParticlesL">
+                    <input type="number" class="manual-input" id="particleNumDisplayL" value="0" step="0.1">
                 </div>
             </div>
             <div class="input-row">
@@ -90,6 +101,7 @@
                 <span>Show Collision Counter</span>
             </lable>
         </div>
+        <div class="warning-container"
     </div>
 </body>
 
