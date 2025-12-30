@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -15,6 +16,7 @@
     </script>
     <script type="module" src="./graphSimScript.js"></script>
 </head>
+
 <body>
     <div id="canvas-container"></div>
     <div class="details-panel">
@@ -60,11 +62,18 @@
         <hr>
         <section class="AvgSpeed">
             <h3>Average Speed</h3>
-            <h3 id="avgSpeedH-text"><span style="font-size: 1.15em;">🟡</span>-- m/s</h3>
-            <h3 id="avgSpeedL-text"><span style="font-size: 0.8em;">🔴</span> -- m/s</h3>
+            <h3 id="avgSpeedH-text"><span style="font-size: 1.15em;">🟡</span> m/s</h3>
+            <h3 id="avgSpeedL-text"><span style="font-size: 0.8em;">🔴</span> m/s</h3>
         </section>
-        
+
     </div>
+    <div class="warning-panel" id="warning-panel">
+        <h3>Warning</h3>
+        <h4>Reached maximum pressure</h4>
+        <button id="reset-Sim">Reset Simulation</button>
+    </div>
+
+
     <div class="graphs-panel">
         <section class="properties">
             <h3>Properties</h3>
@@ -84,4 +93,5 @@
         </section>
     </div>
 </body>
+
 </html>

@@ -3,15 +3,16 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 //Constants
 const R = 8.314; // Ideal Gas Constant
-const MOLES_PER_PARTICLE = 1.66e-23;
+const MOLES_PER_PARTICLE = 1.66e-22;
 const nmToMeters = 1e-9;
-const ROOM_TEMP = 293.15;
+const ROOM_TEMP = 293;
 const speedTransitionRate = 0.0009;
 const baseSpeed = 0.015;
 const boxSize = 3;
 const particleRadiusH = 0.05;
 const particleRadiusL = 0.03;
-const maxPressure = 90;
+const maxPressure = 300;
+const SIMULATION_TO_METERS = (boxSize * 10 * nmToMeters);
 
 
 // Global Variables
@@ -35,6 +36,8 @@ const avgSpeedHeavyText = document.getElementById('avgSpeedH-text');
 const avgSpeedLightText = document.getElementById('avgSpeedL-text');
 const pressureText = document.getElementById('pressure-text');
 const tempText = document.getElementById('temperature-text');
+const warningPanel = document.getElementById('warning-panel');
+const warningResetBtn = document.getElementById('reset-Sim');
 
 function linkInputs(slider, input, callback) {
     //const slider = document.getElementById(sliderId);
@@ -56,8 +59,20 @@ linkInputs(lightParticlesSlider, lightParticlesInput, (val) => {
     createParticles(val, 'light');
 });
 linkInputs(temperatureSlider, temperatureInput, (val) => {
-    const particleVelocity = parseFloat(temperatureSlider.value);
-    targetSpeedMultiplier = Math.pow(2, particleVelocity);
+    targetSpeedMultiplier = Math.sqrt(val / ROOM_TEMP);
+});
+warningResetBtn.addEventListener('click', () =>{
+    heavyParticlesInput.value = 150;
+    heavyParticlesSlider.value = 150;
+    lightParticlesInput.value = 150;
+    lightParticlesSlider.value = 150;
+    targetSpeedMultiplier = 1;
+    currentSpeedMultiplier = 1;
+    createParticles(150, 'heavy');
+    createParticles(150, 'light');
+    temperatureInput.value = ROOM_TEMP;
+    temperatureSlider.value = ROOM_TEMP;
+
 });
 
 function setupThreejs() {
@@ -85,7 +100,6 @@ function setupLights() {
     const directionalLight2 = new THREE.DirectionalLight(0xffffff, 0.3);
     directionalLight.position.set(5, 5, 5);
     directionalLight2.position.set(-5, -5, -5);
-
     scene.add(ambientLight);
     scene.add(directionalLight);
     scene.add(directionalLight2);
@@ -204,27 +218,47 @@ function updateParticles() {
     });
 }
 function updateUIElements() {
+    // Average Speed Calculation
+    if(allParticlesH.length > 0){
+        const totalSpeedH = allParticlesH.reduce((sum, p) => sum + p.velocity.length(), 0);
+        const avgSpeedH = (totalSpeedH / allParticlesH.length) * SIMULATION_TO_METERS * 60;
+        avgSpeedHeavyText.innerHTML = `<span style="font-size: 1.15em;">🟡</span> ${avgSpeedH.toExponential(2)} m/s`;
+    }
+    else{
+        avgSpeedHeavyText.innerHTML = `--`;
+    }
+    if(allParticlesL.length > 0){
+        const totalSpeedL = allParticlesL.reduce((sum, p) => sum + p.velocity.length(), 0);
+        const avgSpeedL = (totalSpeedL / allParticlesL.length) * SIMULATION_TO_METERS * 60;
+        avgSpeedLightText.innerHTML = `<span style="font-size: 0.8em;">‎🔴</span>‎ ‎ ${avgSpeedL.toExponential(2)} m/s`;
+    }
+    else{
+        avgSpeedLightText.innerHTML = `--`;
+    }
+
     //Pressure Calculation for Explosion
     const n = allParticles.length * MOLES_PER_PARTICLE;
-    let T = currentSpeedMultiplier * ROOM_TEMP;
+    let T = Math.pow(currentSpeedMultiplier, 2) * ROOM_TEMP;
 
-    const widthNM = boxSize * 5;
-    const heightNM = boxSize * 5;
-    const depthNM = boxSize * 5;
-
-    const volume = (widthNM * nmToMeters) * (heightNM * nmToMeters) * (depthNM * nmToMeters);
-    currentPressure = (n * R * T) / volume;
-    const pressureATM = currentPressure / 101325;
-    pressureText.textContent = pressureATM.toFixed(2);
+    const scaleFactor = 10;
+    const sideMeters = (boxSize * scaleFactor) * nmToMeters;
+    const volume = Math.pow(sideMeters, 3);
+    const pressure = (n * R * T) / volume;
+    currentPressure = pressure / 101325;
+    pressureText.textContent = currentPressure.toFixed(2);
     tempText.textContent = T.toFixed(1);
 }
 function animate() {
     updateUIElements();
+    console.log(currentPressure);
     if (currentPressure > maxPressure) {
-        letCollisions = true;
+        warningPanel.style.display = 'flex';
+        console.log(currentPressure);
+        letCollisions = false;
     }
     else{
-        letCollisions = false;
+        warningPanel.style.display = 'none';
+        letCollisions = true;
     }
     requestAnimationFrame(animate);
     updateParticles();
