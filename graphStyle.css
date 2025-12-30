@@ -5,7 +5,6 @@
 }
 body{
     overflow: hidden;
-    background: black;
     font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
 }
 #canvas-container {
@@ -59,7 +58,7 @@ hr{
     flex-direction: column;
 }
 .manual-input{
-    width: 60px;
+    width: 72px;
     background: rgb(255, 255, 255);
     border: 3px solid rgb(170, 170, 170);
     padding: 4px;
@@ -101,4 +100,39 @@ hr{
     display: flex;
     justify-content: space-between;
     padding: 0 5px;
+}
+.sliderticks span{
+    font-size: 15px;
+    position: relative;
+    display: flex;
+    justify-content: center;
+    width: 1px;
+}
+.AvgSpeed{
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+.properties{
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+.graphs-panel{
+    z-index: 3;
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    width: 340px;
+    max-height: 90vh;
+    overflow-y: auto;
+    padding: 20px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 15px;
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    color: white;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
 }

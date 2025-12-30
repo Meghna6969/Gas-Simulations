@@ -13,8 +13,7 @@
             }
         }
     </script>
-    <script src="cdn.jsdelivr.net"></script>
-    <script type="module" src="graphSimScript.js"></script>
+    <script type="module" src="./graphSimScript.js"></script>
 </head>
 <body>
     <div id="canvas-container"></div>
@@ -31,7 +30,7 @@
                 </div>
             </div>
             <div class="input-row">
-                <label for="lightParticles"><span style="font-size: 1em;">🔴</span>Light Particles</label>
+                <label for="lightParticles-input"><span style="font-size: 1em;">🔴</span>Light Particles</label>
                 <div class="control-group">
                     <input type="range" min="0" max="400" value="150" class="slider" id="lightParticles-slider">
                     <input type="number" class="manual-input" id="lightParticles-input" value="150" step="0.1">
@@ -64,8 +63,15 @@
             <h3 id="avgSpeedH-text"><span style="font-size: 1.15em;">🟡</span>-- m/s</h3>
             <h3 id="avgSpeedL-text"><span style="font-size: 0.8em;">🔴</span> -- m/s</h3>
         </section>
+        
     </div>
     <div class="graphs-panel">
+        <section class="properties">
+            <h3>Properties</h3>
+            <h3>⏲️ Pressure: <span id="pressure-text">10</span> atm</h3>
+            <h3>🌡Temperature: <span id="temperature-text">10</span> K</h3>
+        </section>
+        <hr>
         <section class="graphs-section">
             <div class="keGraph">
                 <h3>Kinetic Energy</h3>
