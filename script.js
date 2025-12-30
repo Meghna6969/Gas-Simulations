@@ -18,6 +18,7 @@ const particleRadiusL = 0.03;
 let wallCollisionCount = 0;
 let isCountingCollisions = false;
 let collisionTimer = 0;
+let timeSpeed = 0;
 
 // Making everything physically accurate
 const R = 8.314; // Ideal Gas Constant
@@ -43,8 +44,7 @@ const collisionPanel = document.querySelector('.collision-controls-panel');
 const wallCollisionCounterText = document.querySelector('.collision-controls-panel h3');
 const wallCollisionTimer = document.getElementById('time-elapsed-coll');
 const collisionReset = document.getElementById('resetCollBtn');
-const 
-
+const collisionStop = document.getElementById('stopCounting');
 tempSlider.addEventListener('mouseup', function () {
     tempSlider.value = 0;
     targetSpeedMultiplier = 1;
@@ -99,6 +99,13 @@ document.getElementById('resetCollBtn').addEventListener('click', () => {
     wallCollisionCount = 0;
     collisionTimer = 0;
 });
+document.getElementById('stepBtn').addEventListener('click', () => {
+    if(isPaused){
+        updateParticles();
+        elaspedTime += 0.01 * timeSpeed;
+        updateTimeDisplay();
+    }
+})
 // Temperature slider type
 document.querySelectorAll('input[name="tempMode"]').forEach(radio => {
     radio.addEventListener('change', (e) => {
@@ -370,17 +377,27 @@ function animate() {
     }
     wallCollisionCounterText.textContent = wallCollisionCount;
     if(isCountingCollisions && !isPaused){
-        collisionTimer += 0.016;
+        collisionTimer += 0.016 * timeSpeed;
     }
     wallCollisionTimer.textContent = collisionTimer.toFixed(2);
-    if(isCountingCollisions){
 
+    if(isCountingCollisions){
+        collisionReset.disabled = true;
+        collisionStop.disabled = false;
+    }
+    else{
+        collisionReset.disabled = false;
+        collisionStop.disabled = true;
     }
 
     if (!isPaused) {
+        const updates = Math.max(1, Math.floor(timeSpeed));
+        for(let i = 0; i < updates; i++){
+            updateParticles();
+        }
         updateParticles();
         document.getElementById('stepBtn').disabled = true;
-        elaspedTime += 0.016;
+        elaspedTime += 0.016 * timeSpeed;
         updateTimeDisplay();
     }
     else {
@@ -405,6 +422,10 @@ updateInputs('volume', 'volumeDisplay', (val) => {
 });
 updateInputs('specificTempSlider', 'specificTempInput', (val) => {
     updateSpecificTemp(val);
+});
+updateInputs('timeSpeed', 'timeSpeedDisplay', (val) => {
+    timeSpeed = val;
+    document.getElementById('speedMultiplierText').textContent = val.toFixed(1);
 });
 createParticles(parseFloat(amountParticlesSliderH.value), 'heavy');
 createParticles(parseFloat(amountParticlesSliderL.value), 'light');

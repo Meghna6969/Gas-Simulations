@@ -27,6 +27,14 @@
         </div>
         <div class="time-display">Time: <span id="time-elapsed">0.00</span>s</div>
         <button id="resetBtn" title="Reset Simulation">Reset time</button>
+        <div class="speed-control">
+            <label for="timeSpeed">Simulation Speed</label>
+            <div class="control-group">
+                <input type="range" min="0.1" max="5" value="1" step="0.1" class="slider" id="timeSpeed">
+                <input type="number" class="manual-input" id="timeSpeedDisplay" value="1" step="0.1" min="0.1" max="5">
+            </div>
+            <span style="font-size: 0.9em;">x<span id="speedMultiplierText">1.0</span></span>
+        </div>
         <h4 id="clarificationText">No change in temperature!</h4>
     </div>
     <div class="collision-controls-panel">
@@ -65,14 +73,14 @@
             <div class="input-row">
                 <label for="amountOfParticlesH"><span style="font-size: 1.25em;">🟡 </span>Heavy Particles</label>
                 <div class="control-group">
-                    <input type="range" min="0" max="500" value="150" class="slider" id="amountOfParticlesH">
+                    <input type="range" min="0" max="400" value="150" class="slider" id="amountOfParticlesH">
                     <input type="number" class="manual-input" id="particleNumDisplayH" value="150" step="0.1">
                 </div>
             </div>
             <div class="input-row">
                 <label for="amountOfParticlesL"><span style="font-size: 1em;">🔴</span> Light Particles</label>
                 <div class="control-group">
-                    <input type="range" min="0" max="500" value="0" class="slider" id="amountOfParticlesL">
+                    <input type="range" min="0" max="400" value="0" class="slider" id="amountOfParticlesL">
                     <input type="number" class="manual-input" id="particleNumDisplayL" value="0" step="0.1">
                 </div>
             </div>
