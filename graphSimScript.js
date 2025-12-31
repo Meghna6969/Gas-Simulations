@@ -6,13 +6,14 @@ const R = 8.314; // Ideal Gas Constant
 const MOLES_PER_PARTICLE = 1.66e-22;
 const nmToMeters = 1e-9;
 const ROOM_TEMP = 293;
-const speedTransitionRate = 0.0009;
-const baseSpeed = 0.015;
+const stepSize = 0.0009;
 const boxSize = 3;
 const particleRadiusH = 0.05;
 const particleRadiusL = 0.03;
 const maxPressure = 300;
 const SIMULATION_TO_METERS = (boxSize * 10 * nmToMeters);
+const REFERENCE_MAX_SPEED = 0.2;
+const REFERENCE_MAX_KE = 0.02;
 
 
 // Global Variables
@@ -25,6 +26,7 @@ let targetSpeedMultiplier = 1;
 let currentSpeedMultiplier = 1;
 let letCollisions = true;
 let currentPressure;
+let frameCount = 0;
 
 const heavyParticlesInput = document.getElementById('heavyParticles-input');
 const heavyParticlesSlider = document.getElementById('heavyParticles-slider');
@@ -59,6 +61,8 @@ linkInputs(lightParticlesSlider, lightParticlesInput, (val) => {
     createParticles(val, 'light');
 });
 linkInputs(temperatureSlider, temperatureInput, (val) => {
+    const safeTemp =  Math.max(val, 0.1);
+
     targetSpeedMultiplier = Math.sqrt(val / ROOM_TEMP);
 });
 warningResetBtn.addEventListener('click', () =>{
@@ -152,13 +156,21 @@ function createParticles(count, type) {
     allParticles = [...allParticlesH, ...allParticlesL];
 }
 function updateParticles() {
-    const diff = targetSpeedMultiplier - currentSpeedMultiplier;
-
-    if (Math.abs(diff) > 0.0001) {
-        currentSpeedMultiplier += diff * speedTransitionRate;
+    const oldMultiplier = currentSpeedMultiplier;
+    if(currentSpeedMultiplier < targetSpeedMultiplier){
+        currentSpeedMultiplier += stepSize;
+        if(currentSpeedMultiplier > targetSpeedMultiplier){
+            currentSpeedMultiplier = targetSpeedMultiplier;
+        } 
+    }else if(currentSpeedMultiplier > targetSpeedMultiplier) {
+        currentSpeedMultiplier -= stepSize;
+        if(currentSpeedMultiplier < targetSpeedMultiplier){
+            currentSpeed = targetSpeedMultiplier;
+        }
     }
-    else {
-        currentSpeedMultiplier = targetSpeedMultiplier;
+    let scaleFactor = 1;
+    if(oldMultiplier !== 0){
+        scaleFactor = currentSpeedMultiplier / oldMultiplier;
     }
 
     for (let i = 0; i < allParticles.length; i++) {
@@ -193,14 +205,17 @@ function updateParticles() {
 
 
     allParticles.forEach(particle => {
-        const massFactor = particle.massMultiplier;
-        const direction = particle.velocity.clone().normalize();
-        const speed = baseSpeed * currentSpeedMultiplier * massFactor;
+        //const massFactor = particle.massMultiplier;
+        //const direction = particle.velocity.clone().normalize();
+        //const speed = baseSpeed * currentSpeedMultiplier * massFactor;
 
-        particle.velocity.normalize().multiplyScalar(speed);
+        //particle.velocity.normalize().multiplyScalar(speed);
+        particle.velocity.multiplyScalar(scaleFactor);
         particle.mesh.position.add(particle.velocity);
+
         const radius = particle.radius;
-        const impactForce = speed * massFactor;
+        const currentSpeed = particle.velocity.length();
+        const impactForce = currentSpeed * particle.massMultiplier;
         if (letCollisions) {
             if (Math.abs(particle.mesh.position.x) > (boxSize / 2) - radius) {
                 particle.velocity.x *= -1;
@@ -256,11 +271,13 @@ function updateUIElements() {
     currentPressure = pressure / 101325;
     pressureText.textContent = currentPressure.toFixed(2);
     tempText.textContent = T.toFixed(1);
-
-    updateSpeedGraph();
-    updateKEGraph();
+    frameCount++;
+    if(frameCount % 10 === 0){
+        updateSpeedGraph();
+        updateKEGraph();
+    }
 }
-function createHistograms(particles, property, numBins){
+function createHistograms(particles, property, numBins, forcedMin, forcedMax){
     if(particles.length === 0) return {bins: [], counts: []};
     
     const values = particles.map(p => {
@@ -276,11 +293,10 @@ function createHistograms(particles, property, numBins){
         }
     });
 
-    const minVal = Math.min(...values);
-    const maxVal = Math.max(...values);
+    const minVal = forcedMin;
+    const maxVal = forcedMax;
     const range = maxVal - minVal;
-    const paddedMin = minVal - range * 0.05;
-    const binWidth = (maxVal - minVal) / numBins;
+    const binWidth = range / numBins;
 
     const bins = [];
     const counts = new Array(numBins).fill(0);
@@ -289,7 +305,10 @@ function createHistograms(particles, property, numBins){
         bins.push(minVal + i * binWidth);
     }
     values.forEach(val => {
-        const binIndex = Math.min(Math.floor((val - minVal) / binWidth), numBins - 1);
+        const binIndex = Math.floor((val - minVal) / binWidth);
+        if(binIndex >= numBins) binIndex = numBins - 1;
+        if(binIndex < 0) binIndex = 0;
+
         counts[binIndex]++;
     });
 
@@ -354,16 +373,31 @@ function drawGraph(canvasId, heavyData, lightData, xlabel){
     ctx.restore();
 }
 function updateSpeedGraph(){
-    const numBins = 20;
-    const heavyData = createHistograms(allParticlesH, 'speed', numBins);
-    const lightData = createHistograms(allParticlesL, 'speed', numBins);
+    const numBins = 30;
+    let maxSpeed = 0;
+    allParticles.forEach(p => {
+        const s = p.velocity.length();
+        if(s > maxSpeed) maxSpeed = s;
+    });
+
+    const globalMax = Math.max(maxSpeed * 1.1, REFERENCE_MAX_SPEED);
+
+    const heavyData = createHistograms(allParticlesH, 'speed', numBins, 0, globalMax);
+    const lightData = createHistograms(allParticlesL, 'speed', numBins, 0, globalMax);
     drawGraph('speed-canvas', heavyData, lightData, 'Speed');
 }
 function updateKEGraph(){
-    const numBins = 20;
-    const heavyData = createHistograms(allParticlesH, 'ke', numBins);
-    const lightData = createHistograms(allParticlesL, 'ke', numBins);
-    drawGraph('ke-canvas', heavyData, lightData, 'Something');
+    const numBins = 30;
+    let maxKE = 0;
+    allParticles.forEach(p => {
+        const v = p.velocity.length();
+        const ke = 0.5 * p.massMultiplier * v * v;
+        if(ke > maxKE) maxKE = ke;
+    });
+    const globalMax = Math.max(maxKE * 1.1, REFERENCE_MAX_KE);
+    const heavyData = createHistograms(allParticlesH, 'ke', numBins, 0, globalMax);
+    const lightData = createHistograms(allParticlesL, 'ke', numBins, 0, globalMax);
+    drawGraph('ke-canvas', heavyData, lightData, 'Kinetic Energy');
 }
 function animate() {
     updateUIElements();
