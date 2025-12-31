@@ -1,6 +1,17 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
+// Constants
+const R = 8.314; // Ideal Gas Constant
+const Moles_Per_Particle = 1.66e-23;
+const nmToMeters = 1e-9;
+const ROOM_TEMP = 293.15;
+const boxSize = 3;
+const baseSpeed = 0.015;
+const particleRadiusH = 0.05;
+const particleRadiusL = 0.03;
+const speedTransitionRate = 0.0009;
+
 // Global Variables
 let scene, renderer, camera, controls;
 let allParticlesH = [];
@@ -8,32 +19,17 @@ let allParticlesL = [];
 let allParticles = [];
 let isPaused = false;
 let elaspedTime = 0;
-const boxSize = 3;
 let containerPressureIntensityIndicator = 0;
 let containerGlowIntensity = 0;
-const baseSpeed = 0.015;
 let currentBoxBounds = boxSize / 2;
-const particleRadiusH = 0.05;
-const particleRadiusL = 0.03;
 let wallCollisionCount = 0;
 let isCountingCollisions = false;
 let collisionTimer = 0;
 let timeSpeed = 0;
-
-// Making everything physically accurate
-const R = 8.314; // Ideal Gas Constant
-const Moles_Per_Particle = 1.66e-23;
-const nmToMeters = 1e-9;
-const ROOM_TEMP = 293.15;
-
-
 let container;
 let tempMode = "relative";
-let targetSpecificTemp = ROOM_TEMP; // Room temperature heat
-
 let targetSpeedMultiplier = 1;
 let currentSpeedMultiplier = 1.0;
-const speedTransitionRate = 0.0009;
 
 const amountParticlesSliderH = document.getElementById('amountOfParticlesH');
 const amountParticlesSliderL = document.getElementById('amountOfParticlesL');
@@ -45,67 +41,70 @@ const wallCollisionCounterText = document.querySelector('.collision-controls-pan
 const wallCollisionTimer = document.getElementById('time-elapsed-coll');
 const collisionReset = document.getElementById('resetCollBtn');
 const collisionStop = document.getElementById('stopCounting');
+const pauseButton = document.getElementById('pauseBtn');
+const stepButton = document.getElementById('stepBtn');
+const resetButton = document.getElementById('resetBtn');
+const tempSpecificSlider = document.getElementById('specificTempSlider');
+const tempSpecificInput = document.getElementById('specificTempInput');
+const resetTempSpecificButton = document.getElementById('resetSpecificTemps');
+const startCountingButton = document.getElementById('startCounting');
+const stopCountingButton = document.getElementById('stopCounting');
+const resetCollButton = document.getElementById('resetCollBtn');
+
 tempSlider.addEventListener('mouseup', function () {
     tempSlider.value = 0;
     targetSpeedMultiplier = 1;
     updateHeatOrCold(0);
 });
-document.getElementById('pauseBtn').addEventListener('click', () => {
+pauseButton.addEventListener('click', () => {
     isPaused = !isPaused;
-    document.getElementById('pauseBtn').textContent = isPaused ? '▶' : '||';
+    pauseButton.textContent = isPaused ? '▶' : '||';
 });
-document.getElementById('stepBtn').addEventListener('click', () => {
-    if (isPaused) {
-        updateParticles();
-        elaspedTime += 0.01;
-        updateTimeDisplay();
-    }
-});
-document.getElementById('resetBtn').addEventListener('click', () => {
+resetButton.addEventListener('click', () => {
     elaspedTime = 0;
     updateTimeDisplay();
-})
+});
 volumeSlider.addEventListener('input', function () {
     const newWidth = parseFloat(volumeSlider.value);
     updateContainer(newWidth);
-})
+});
 amountParticlesSliderH.addEventListener('input', function () {
     createParticles(parseFloat(amountParticlesSliderH.value), 'heavy');
 });
 amountParticlesSliderL.addEventListener('input', function(){
     createParticles(parseFloat(amountParticlesSliderL.value), 'light');
-})
+});
 tempSlider.addEventListener('input', function () {
     const particleVelocity = parseFloat(tempSlider.value);
     targetSpeedMultiplier = Math.pow(2, particleVelocity);
     updateHeatOrCold(particleVelocity);
 });
-document.getElementById('resetSpecificTemps').addEventListener('click', function () {
+resetTempSpecificButton.addEventListener('click', function () {
     updateSpecificTemp(ROOM_TEMP);
     currentSpeedMultiplier = 1;
-    document.getElementById('specificTempSlider').value = ROOM_TEMP;
-    document.getElementById('specificTempInput').value = ROOM_TEMP;
+    tempSpecificSlider.value = ROOM_TEMP;
+    tempSpecificInput.value = ROOM_TEMP;
     updateHeatOrCold(0);
 });
-document.getElementById('startCounting').addEventListener('click', () => {
+startCountingButton.addEventListener('click', () => {
     isCountingCollisions = true;
     wallCollisionCount = 0;
     collisionTimer = 0;
 });
-document.getElementById('stopCounting').addEventListener('click', () => {
+stopCountingButton.addEventListener('click', () => {
     isCountingCollisions = false;
 });
-document.getElementById('resetCollBtn').addEventListener('click', () => {
+resetCollButton.addEventListener('click', () => {
     wallCollisionCount = 0;
     collisionTimer = 0;
 });
-document.getElementById('stepBtn').addEventListener('click', () => {
+stepButton.addEventListener('click', () => {
     if(isPaused){
         updateParticles();
         elaspedTime += 0.01 * timeSpeed;
         updateTimeDisplay();
     }
-})
+});
 // Temperature slider type
 document.querySelectorAll('input[name="tempMode"]').forEach(radio => {
     radio.addEventListener('change', (e) => {

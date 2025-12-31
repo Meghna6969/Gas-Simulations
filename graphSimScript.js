@@ -17,6 +17,7 @@ const SIMULATION_TO_METERS = (boxSize * 10 * nmToMeters);
 const REFERENCE_MAX_SPEED = 0.2;
 const REFERENCE_MAX_KE = 0.02;
 const GRAVITY = 0.005;
+const holeSize = 1;
 
 
 // Global Variables
@@ -33,6 +34,9 @@ let frameCount = 0;
 let simSpeed = 1;
 let isPaused = false;
 let isGravityStratOn = false;
+let isEffusioning = false;
+let holeMesh;
+
 
 const heavyParticlesInput = document.getElementById('heavyParticles-input');
 const heavyParticlesSlider = document.getElementById('heavyParticles-slider');
@@ -52,6 +56,8 @@ const speedMultiplierText = document.getElementById('speedMultiplierText');
 const pauseButton = document.getElementById('pauseBtn');
 const stepButton = document.getElementById('stepBtn');
 const gravityStratCheckbox = document.getElementById('gravityCheck');
+const effusionCheckbox = document.getElementById('effusionCheck');
+
 
 function linkInputs(slider, input, callback) {
     //const slider = document.getElementById(sliderId);
@@ -95,6 +101,10 @@ stepButton.addEventListener('click', () => {
 gravityStratCheckbox.addEventListener('change', (e) => {
     isGravityStratOn = e.target.checked;
 }); 
+effusionCheckbox.addEventListener('change', (e) => {
+    isEffusioning = e.target.checked;
+    holeMesh.visible = isEffusioning;
+})
 
 warningResetBtn.addEventListener('click', () => {
     heavyParticlesInput.value = 150;
@@ -435,6 +445,15 @@ function updateKEGraph() {
     const lightData = createHistograms(allParticlesL, 'ke', numBins, 0, globalMax);
     drawGraph('ke-canvas', heavyData, lightData, 'Kinetic Energy');
 }
+function createHoleVisual(){
+    const geometry = new THREE.EdgesGeometry(new THREE.CircleGeometry(holeSize, 32));
+    const material = new THREE.LineBasicMaterial({color: 0xff0000});
+    holeMesh = new THREE.LineSegments(geometry, material);
+    holeMesh.position.set(boxSize / 2, 0, 0);
+    holeMesh.rotation.y = Math.PI / 2;
+    holeMesh.visible = false;
+    scene.add(holeMesh);
+}
 function animate() {
     if (!isPaused) {
         stepButton.disabled = true;
@@ -461,6 +480,7 @@ function animate() {
 setupThreejs();
 setupLights();
 setupContainer();
+createHoleVisual();
 createParticles(parseFloat(heavyParticlesInput.value), 'heavy');
 createParticles(parseFloat(lightParticlesInput.value), 'light');
 animate();
