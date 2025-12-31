@@ -10,10 +10,13 @@ const stepSize = 0.0009;
 const boxSize = 3;
 const particleRadiusH = 0.05;
 const particleRadiusL = 0.03;
+const heavyParticleMass = 3;
+const lightParticleMass = 1;
 const maxPressure = 300;
 const SIMULATION_TO_METERS = (boxSize * 10 * nmToMeters);
 const REFERENCE_MAX_SPEED = 0.2;
 const REFERENCE_MAX_KE = 0.02;
+const GRAVITY = 0.005;
 
 
 // Global Variables
@@ -27,6 +30,9 @@ let currentSpeedMultiplier = 1;
 let letCollisions = true;
 let currentPressure;
 let frameCount = 0;
+let simSpeed = 1;
+let isPaused = false;
+let isGravityStratOn = false;
 
 const heavyParticlesInput = document.getElementById('heavyParticles-input');
 const heavyParticlesSlider = document.getElementById('heavyParticles-slider');
@@ -40,6 +46,12 @@ const pressureText = document.getElementById('pressure-text');
 const tempText = document.getElementById('temperature-text');
 const warningPanel = document.getElementById('warning-panel');
 const warningResetBtn = document.getElementById('reset-Sim');
+const timeSpeedSlider = document.getElementById('timeSpeed');
+const timeSpeedInput = document.getElementById('timeSpeedDisplay');
+const speedMultiplierText = document.getElementById('speedMultiplierText');
+const pauseButton = document.getElementById('pauseBtn');
+const stepButton = document.getElementById('stepBtn');
+const gravityStratCheckbox = document.getElementById('gravityCheck');
 
 function linkInputs(slider, input, callback) {
     //const slider = document.getElementById(sliderId);
@@ -54,6 +66,7 @@ function linkInputs(slider, input, callback) {
         callback(parseFloat(input.value));
     });
 }
+
 linkInputs(heavyParticlesSlider, heavyParticlesInput, (val) => {
     createParticles(val, 'heavy');
 });
@@ -61,11 +74,29 @@ linkInputs(lightParticlesSlider, lightParticlesInput, (val) => {
     createParticles(val, 'light');
 });
 linkInputs(temperatureSlider, temperatureInput, (val) => {
-    const safeTemp =  Math.max(val, 0.1);
+    const safeTemp = Math.max(val, 0.1);
 
     targetSpeedMultiplier = Math.sqrt(val / ROOM_TEMP);
 });
-warningResetBtn.addEventListener('click', () =>{
+linkInputs(timeSpeedSlider, timeSpeedInput, (val) => {
+    simSpeed = val;
+    speedMultiplierText.innerText = val.toFixed(1);
+});
+pauseButton.addEventListener('click', () => {
+    isPaused = !isPaused;
+    pauseButton.textContent = isPaused ? "▶︎" : "||";
+});
+stepButton.addEventListener('click', () => {
+    if (isPaused) {
+        updateParticles();
+        updateUIElements();
+    }
+});
+gravityStratCheckbox.addEventListener('change', (e) => {
+    isGravityStratOn = e.target.checked;
+}); 
+
+warningResetBtn.addEventListener('click', () => {
     heavyParticlesInput.value = 150;
     heavyParticlesSlider.value = 150;
     lightParticlesInput.value = 150;
@@ -130,7 +161,7 @@ function createParticles(count, type) {
     }
     const radius = isHeavy ? particleRadiusH : particleRadiusL;
     const color = isHeavy ? 0xffd300 : 0xff0000;
-    const massMultiplier = isHeavy ? 1.0 : 2.5;
+    const massMultiplier = isHeavy ? heavyParticleMass : lightParticleMass;
 
     const particleGeometry = new THREE.SphereGeometry(radius, 16, 16);
     const particleMaterial = new THREE.MeshPhongMaterial({ color: color });
@@ -143,7 +174,7 @@ function createParticles(count, type) {
             mesh: mesh,
             type: type,
             radius: radius,
-            velocity: new THREE.Vector3((Math.random() - 0.5) * 0.05 * massMultiplier, (Math.random() - 0.5) * 0.05 * massMultiplier, (Math.random() - 0.5) * 0.05 * massMultiplier),
+            velocity: new THREE.Vector3((Math.random() - 0.5) * 0.05 * Math.sqrt(massMultiplier), (Math.random() - 0.5) * 0.05 * Math.sqrt(massMultiplier), (Math.random() - 0.5) * 0.05 * Math.sqrt(massMultiplier)),
             massMultiplier: massMultiplier
         };
         if (isHeavy) {
@@ -157,19 +188,19 @@ function createParticles(count, type) {
 }
 function updateParticles() {
     const oldMultiplier = currentSpeedMultiplier;
-    if(currentSpeedMultiplier < targetSpeedMultiplier){
+    if (currentSpeedMultiplier < targetSpeedMultiplier) {
         currentSpeedMultiplier += stepSize;
-        if(currentSpeedMultiplier > targetSpeedMultiplier){
+        if (currentSpeedMultiplier > targetSpeedMultiplier) {
             currentSpeedMultiplier = targetSpeedMultiplier;
-        } 
-    }else if(currentSpeedMultiplier > targetSpeedMultiplier) {
+        }
+    } else if (currentSpeedMultiplier > targetSpeedMultiplier) {
         currentSpeedMultiplier -= stepSize;
-        if(currentSpeedMultiplier < targetSpeedMultiplier){
-            currentSpeed = targetSpeedMultiplier;
+        if (currentSpeedMultiplier < targetSpeedMultiplier) {
+            currentSpeedMultiplier = targetSpeedMultiplier;
         }
     }
     let scaleFactor = 1;
-    if(oldMultiplier !== 0){
+    if (oldMultiplier !== 0) {
         scaleFactor = currentSpeedMultiplier / oldMultiplier;
     }
 
@@ -185,11 +216,11 @@ function updateParticles() {
                 const relativeVel = p1.velocity.clone().sub(p2.velocity);
                 const velocityAlongNormal = relativeVel.dot(normal);
 
-                if(velocityAlongNormal > 0) continue;
+                if (velocityAlongNormal > 0) continue;
                 const m1 = p1.massMultiplier;
                 const m2 = p2.massMultiplier;
                 const impulse = (2 * velocityAlongNormal) / (m1 + m2);
-                
+
                 p1.velocity.sub(normal.clone().multiplyScalar(impulse * m2));
                 p2.velocity.add(normal.clone().multiplyScalar(impulse * m1));
 
@@ -211,7 +242,12 @@ function updateParticles() {
 
         //particle.velocity.normalize().multiplyScalar(speed);
         particle.velocity.multiplyScalar(scaleFactor);
-        particle.mesh.position.add(particle.velocity);
+
+        if(isGravityStratOn){
+            particle.velocity.y -= GRAVITY * simSpeed;
+        }
+        const movementStep = particle.velocity.clone().multiplyScalar(simSpeed);
+        particle.mesh.position.add(movementStep);
 
         const radius = particle.radius;
         const currentSpeed = particle.velocity.length();
@@ -243,20 +279,20 @@ function updateParticles() {
 }
 function updateUIElements() {
     // Average Speed Calculation
-    if(allParticlesH.length > 0){
+    if (allParticlesH.length > 0) {
         const totalSpeedH = allParticlesH.reduce((sum, p) => sum + p.velocity.length(), 0);
         const avgSpeedH = (totalSpeedH / allParticlesH.length) * SIMULATION_TO_METERS * 60;
         avgSpeedHeavyText.innerHTML = `<span style="font-size: 1.15em;">🟡</span> ${avgSpeedH.toExponential(2)} m/s`;
     }
-    else{
+    else {
         avgSpeedHeavyText.innerHTML = `<span style="font-size: 1.15em;">‎🟡</span>‎ ‎  -- m/s`;
     }
-    if(allParticlesL.length > 0){
+    if (allParticlesL.length > 0) {
         const totalSpeedL = allParticlesL.reduce((sum, p) => sum + p.velocity.length(), 0);
         const avgSpeedL = (totalSpeedL / allParticlesL.length) * SIMULATION_TO_METERS * 60;
         avgSpeedLightText.innerHTML = `<span style="font-size: 0.8em;">‎ 🔴</span>‎ ‎ ${avgSpeedL.toExponential(2)} m/s`;
     }
-    else{
+    else {
         avgSpeedLightText.innerHTML = `<span style="font-size: 0.8em;">‎ 🔴</span>‎ ‎ -- m/s`;
     }
 
@@ -272,22 +308,22 @@ function updateUIElements() {
     pressureText.textContent = currentPressure.toFixed(2);
     tempText.textContent = T.toFixed(1);
     frameCount++;
-    if(frameCount % 10 === 0){
+    if (frameCount % 10 === 0) {
         updateSpeedGraph();
         updateKEGraph();
     }
 }
-function createHistograms(particles, property, numBins, forcedMin, forcedMax){
-    if(particles.length === 0) return {bins: [], counts: []};
-    
+function createHistograms(particles, property, numBins, forcedMin, forcedMax) {
+    if (particles.length === 0) return { bins: [], counts: [] };
+
     const values = particles.map(p => {
-        if(property === 'speed'){
+        if (property === 'speed') {
             return p.velocity.length();
-        }else if(property === 'ke'){
+        } else if (property === 'ke') {
             const v = p.velocity.length();
             return 0.5 * p.massMultiplier * v * v;
         }
-        else{
+        else {
             // do nothing
             // intentionally left blank so that any input other than above return an error
         }
@@ -301,21 +337,21 @@ function createHistograms(particles, property, numBins, forcedMin, forcedMax){
     const bins = [];
     const counts = new Array(numBins).fill(0);
 
-    for(let i = 0; i < numBins; i++){
+    for (let i = 0; i < numBins; i++) {
         bins.push(minVal + i * binWidth);
     }
     values.forEach(val => {
         const binIndex = Math.floor((val - minVal) / binWidth);
-        if(binIndex >= numBins) binIndex = numBins - 1;
-        if(binIndex < 0) binIndex = 0;
+        if (binIndex >= numBins) binIndex = numBins - 1;
+        if (binIndex < 0) binIndex = 0;
 
         counts[binIndex]++;
     });
 
-    return {bins, counts};
+    return { bins, counts };
 
 }
-function drawGraph(canvasId, heavyData, lightData, xlabel){
+function drawGraph(canvasId, heavyData, lightData, xlabel) {
     const canvas = document.getElementById(canvasId);
 
     const ctx = canvas.getContext('2d');
@@ -338,9 +374,9 @@ function drawGraph(canvasId, heavyData, lightData, xlabel){
     ctx.stroke();
 
     // Draw Heavy Particles
-    if(heavyData.bins.length > 0){
+    if (heavyData.bins.length > 0) {
         ctx.fillStyle = 'rgba(255, 211, 0, 0.6)';
-        const binWidth  = graphWidth / heavyData.bins.length;
+        const binWidth = graphWidth / heavyData.bins.length;
 
         heavyData.counts.forEach((count, i) => {
             const barHeight = (count / maxCount) * graphHeight;
@@ -349,7 +385,7 @@ function drawGraph(canvasId, heavyData, lightData, xlabel){
             ctx.fillRect(x, y, binWidth * 0.9, barHeight);
         });
     }
-    if(lightData.bins.length > 0){
+    if (lightData.bins.length > 0) {
         ctx.fillStyle = 'rgba(255, 0, 0, 0.6)';
         const binWidth = graphWidth / lightData.bins.length;
 
@@ -372,12 +408,12 @@ function drawGraph(canvasId, heavyData, lightData, xlabel){
     ctx.fillText('Count', 0, 0);
     ctx.restore();
 }
-function updateSpeedGraph(){
+function updateSpeedGraph() {
     const numBins = 30;
     let maxSpeed = 0;
     allParticles.forEach(p => {
         const s = p.velocity.length();
-        if(s > maxSpeed) maxSpeed = s;
+        if (s > maxSpeed) maxSpeed = s;
     });
 
     const globalMax = Math.max(maxSpeed * 1.1, REFERENCE_MAX_SPEED);
@@ -386,13 +422,13 @@ function updateSpeedGraph(){
     const lightData = createHistograms(allParticlesL, 'speed', numBins, 0, globalMax);
     drawGraph('speed-canvas', heavyData, lightData, 'Speed');
 }
-function updateKEGraph(){
+function updateKEGraph() {
     const numBins = 30;
     let maxKE = 0;
     allParticles.forEach(p => {
         const v = p.velocity.length();
         const ke = 0.5 * p.massMultiplier * v * v;
-        if(ke > maxKE) maxKE = ke;
+        if (ke > maxKE) maxKE = ke;
     });
     const globalMax = Math.max(maxKE * 1.1, REFERENCE_MAX_KE);
     const heavyData = createHistograms(allParticlesH, 'ke', numBins, 0, globalMax);
@@ -400,19 +436,25 @@ function updateKEGraph(){
     drawGraph('ke-canvas', heavyData, lightData, 'Kinetic Energy');
 }
 function animate() {
-    updateUIElements();
+    if (!isPaused) {
+        stepButton.disabled = true;
+        updateParticles();
+        updateUIElements();
+    }
+    else{
+        stepButton.disabled = false;
+    }
     console.log(currentPressure);
     if (currentPressure > maxPressure) {
         warningPanel.style.display = 'flex';
         console.log(currentPressure);
         letCollisions = false;
     }
-    else{
+    else {
         warningPanel.style.display = 'none';
         letCollisions = true;
     }
     requestAnimationFrame(animate);
-    updateParticles();
     controls.update();
     renderer.render(scene, camera);
 }
