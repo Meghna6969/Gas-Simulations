@@ -18,6 +18,7 @@ const REFERENCE_MAX_SPEED = 0.2;
 const REFERENCE_MAX_KE = 0.02;
 const GRAVITY = 0.005;
 const holeSize = 1;
+const scaleFactor = 10; // For the pressure calculation in the updateUIElement
 
 
 // Global Variables
@@ -37,6 +38,7 @@ let isGravityStratOn = false;
 let isEffusioning = false;
 let holeMesh;
 let hasExploded = false;
+let currentBoxBounds = boxSize;
 
 const heavyParticlesInput = document.getElementById('heavyParticles-input');
 const heavyParticlesSlider = document.getElementById('heavyParticles-slider');
@@ -57,6 +59,10 @@ const pauseButton = document.getElementById('pauseBtn');
 const stepButton = document.getElementById('stepBtn');
 const gravityStratCheckbox = document.getElementById('gravityCheck');
 const effusionCheckbox = document.getElementById('effusionCheck');
+const volumeSlider = document.getElementById('volume-slider');
+const volumeInput = document.getElementById('volume-input');
+const pressureUnitSelect = document.getElementById('pressure-unit-select');
+const temperatureUnitSelect = document.getElementById('temperature-unit-select');
 
 
 function linkInputs(slider, input, callback) {
@@ -88,6 +94,11 @@ linkInputs(timeSpeedSlider, timeSpeedInput, (val) => {
     simSpeed = val;
     speedMultiplierText.innerText = val.toFixed(1);
 });
+linkInputs(volumeSlider, volumeInput, (val) => {
+    const newWidth = parseFloat(volumeSlider.value);
+    updateContainer(newWidth);
+});
+
 pauseButton.addEventListener('click', () => {
     isPaused = !isPaused;
     pauseButton.textContent = isPaused ? "▶︎" : "||";
@@ -104,8 +115,7 @@ gravityStratCheckbox.addEventListener('change', (e) => {
 effusionCheckbox.addEventListener('change', (e) => {
     isEffusioning = e.target.checked;
     holeMesh.visible = isEffusioning;
-})
-
+});
 warningResetBtn.addEventListener('click', () => {
     heavyParticlesInput.value = 150;
     heavyParticlesSlider.value = 150;
@@ -119,9 +129,17 @@ warningResetBtn.addEventListener('click', () => {
     temperatureSlider.value = ROOM_TEMP;
 
     hasExploded = false;
-    warningPanel.style.display
+    warningPanel.style.display = 'none';
+    createParticles(150, 'heavy');
+    createParticles(150, 'light');
+    updateContainer(boxSize);
+    volumeSlider.value = boxSize;
+    volumeInput.value = boxSize;
 
 });
+pressureUnitSelect.addEventListener('change', () => {
+    updateUIElements();
+})
 
 function setupThreejs() {
     scene = new THREE.Scene();
@@ -266,8 +284,8 @@ function updateParticles() {
             const radius = particle.radius;
             const currentSpeed = particle.velocity.length();
             const impactForce = currentSpeed * particle.massMultiplier;
-            const bound = boxSize / 2;
-            const limit = bound - radius;
+            //const bound = boxSize / 2;
+            const limit = currentBoxBounds - radius;
             if (letCollisions) {
                 if (particle.mesh.position.x > limit) {
                     let escaped = false;
@@ -298,7 +316,7 @@ function updateParticles() {
                     totalImpactForce += impactForce;
                 }
                 // This to the z wall
-                if (Math.abs(particle.mesh.position.z) > staticBounds - radius) {
+                if (Math.abs(particle.mesh.position.z) > (staticBounds - radius)) {
                     particle.velocity.z *= -1;
                     particle.mesh.position.z = Math.sign(particle.mesh.position.z) * (staticBounds - radius);
                     wallHitsPerFrame++;
@@ -308,36 +326,38 @@ function updateParticles() {
 
 
     });
+    if (isEffusioning && !hasExploded) {
+        // BasicallY deleting particles that escaped the box
+        // For Memory you could keep this block but for cool effects you could remove it
+        const escapedLimit = (boxSize / 2) + 100;
+        let needsRebuild = false;
+        const isGone = (p) => p.mesh.position.x > escapedLimit;
 
-    // BasicallY deleting particles that escaped the box
-    // For Memory you could keep this block but for cool effects you could remove it
-    const escapedLimit = (boxSize / 2) + 0.5;
-    let needsRebuild = false;
-    const isGone = (p) => p.mesh.position.x > escapedLimit;
-
-    // For heavy Particles
-    for (let i = allParticlesH.length - 1; i >= 0; i--) {
-        if (isGone(allParticlesH[i])) {
-            scene.remove(allParticlesH[i].mesh);
-            allParticlesH[i].mesh.geometry.dispose();
-            allParticlesH[i].mesh.material.dispose();
-            allParticlesH.splice(i, 1);
-            needsRebuild = true;
+        // For heavy Particles
+        for (let i = allParticlesH.length - 1; i >= 0; i--) {
+            if (isGone(allParticlesH[i])) {
+                scene.remove(allParticlesH[i].mesh);
+                allParticlesH[i].mesh.geometry.dispose();
+                allParticlesH[i].mesh.material.dispose();
+                allParticlesH.splice(i, 1);
+                needsRebuild = true;
+            }
+        }
+        // For Light Particles
+        for (let i = allParticlesL.length - 1; i >= 0; i--) {
+            if (isGone(allParticlesL[i])) {
+                scene.remove(allParticlesL[i].mesh);
+                allParticlesL[i].mesh.geometry.dispose();
+                allParticlesL[i].mesh.material.dispose();
+                allParticlesL.splice(i, 1);
+                needsRebuild = true;
+            }
+        }
+        if (needsRebuild) {
+            allParticles = [...allParticlesH, ...allParticlesL];
         }
     }
-    // For Light Particles
-    for (let i = allParticlesL.length - 1; i >= 0; i--) {
-        if (isGone(allParticlesL[i])) {
-            scene.remove(allParticlesL[i].mesh);
-            allParticlesL[i].mesh.geometry.dispose();
-            allParticlesL[i].mesh.material.dispose();
-            allParticlesL.splice(i, 1);
-            needsRebuild = true;
-        }
-    }
-    if (needsRebuild) {
-        allParticles = [...allParticlesH, ...allParticlesL];
-    }
+
     //allParticles = [...allParticlesH, ...allParticlesL];
 
 }
@@ -363,12 +383,16 @@ function updateUIElements() {
     //Pressure Calculation for Explosion
     const n = allParticles.length * MOLES_PER_PARTICLE;
     let T = Math.pow(currentSpeedMultiplier, 2) * ROOM_TEMP;
+    const currentWidth = currentBoxBounds * 2;
+    const widthMeters = (currentWidth * scaleFactor) * nmToMeters;
 
-    const scaleFactor = 10;
-    const sideMeters = (boxSize * scaleFactor) * nmToMeters;
-    const volume = Math.pow(sideMeters, 3);
+    const heightMeters = (boxSize * scaleFactor) * nmToMeters;
+    const depthMeters = (boxSize * scaleFactor) * nmToMeters;
+
+    const volume = widthMeters * heightMeters * depthMeters;
     const pressure = (n * R * T) / volume;
     currentPressure = pressure / 101325;
+
     pressureText.textContent = currentPressure.toFixed(2);
     tempText.textContent = T.toFixed(1);
     frameCount++;
@@ -508,6 +532,15 @@ function createHoleVisual() {
     holeMesh.visible = false;
     scene.add(holeMesh);
 }
+function updateContainer(width){
+    container.scale.x = width / boxSize;
+    currentBoxBounds = width / 2;
+    allParticles.forEach(particle => {
+        if(Math.abs(particle.mesh.position.x) > currentBoxBounds - 0.1){
+            particle.mesh.position.x = Math.sign(particle.mesh.position.x) * (currentBoxBounds - 0.1);
+        }
+    });
+}
 function animate() {
     if (isEffusioning) {
         console.log(isEffusioning);
@@ -525,18 +558,18 @@ function animate() {
     else {
         stepButton.disabled = false;
     }
-    if(currentPressure > maxPressure || hasExploded){
-        if(!hasExploded){
+    if (currentPressure > maxPressure || hasExploded) {
+        if (!hasExploded) {
             hasExploded = true;
-            if(holeMesh) {
+            if (holeMesh) {
                 holeMesh.visible = false;
                 console.log("Explosion");
             }
             warningPanel.style.display = 'flex';
         }
-    }else{
+    } else {
         warningPanel.style.display = 'none';
-        if(isEffusioning && holeMesh) {
+        if (isEffusioning && holeMesh) {
             holeMesh.visible = true;
         }
     }
@@ -548,6 +581,7 @@ setupThreejs();
 setupLights();
 setupContainer();
 createHoleVisual();
+updateContainer(boxSize);
 createParticles(parseFloat(heavyParticlesInput.value), 'heavy');
 createParticles(parseFloat(lightParticlesInput.value), 'light');
 animate();

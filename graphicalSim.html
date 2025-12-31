@@ -58,6 +58,15 @@
                     </div>
                 </div>
             </div>
+            <div class="volume-control">
+                <h3>Container Volume</h3>
+                <div class="control-group">
+                    <div class="slider-container">
+                        <input type="range" min="1" max="6" value="3" step="0.1" class="slider" id="volume-slider">
+                    </div>
+                    <input type="number" min="1" max="6" value="3" step="0.1" class="manual-input" id="volume-input">
+                </div>
+            </div>
             <div class="gravityPull">
                 <h3>Gravitational Stratification</h3>
                 <input type="checkbox" id="gravityCheck">
@@ -67,13 +76,6 @@
                 <input type="checkbox" id="effusionCheck">
             </div>
         </section>
-        <hr>
-        <section class="AvgSpeed">
-            <h3>Average Speed</h3>
-            <h3 id="avgSpeedH-text"><span style="font-size: 1.15em;">🟡</span> m/s</h3>
-            <h3 id="avgSpeedL-text"><span style="font-size: 0.8em;">🔴</span> m/s</h3>
-        </section>
-
     </div>
     <div class="warning-panel" id="warning-panel">
         <h3>Warning</h3>
@@ -98,8 +100,30 @@
     <div class="graphs-panel">
         <section class="properties">
             <h3>Properties</h3>
-            <h3>⏲️ Pressure: <span id="pressure-text">10</span> atm</h3>
-            <h3>🌡Temperature: <span id="temperature-text">10</span> K</h3>
+            <div style="display: flex; align-items: center; gap: 12px;">
+                 <h3>⏲️ Pressure: <span class="value-texts" id="pressure-text">10</span></h3>
+                 <select id="pressure-unit-select" class="unit-select">
+                    <option value="atm">atm</option>
+                    <option value="kPa">kPa</option>
+                    <option value="Pa">Pa</option>
+                    <option value="psi">psi</option>
+                 </select>
+            </div>
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <h3>🌡Temperature: <span class="value-texts" id="temperature-text">10</span></h3>
+                <select id="temperature-unit-select" class="unit-select">
+                    <option value="K">K</option>
+                    <option value="C">°C</option>
+                    <option value="F">°F</option>
+                </select>
+            </div>
+            
+        </section>
+        <hr>
+        <section class="AvgSpeed">
+            <h3>Average Speed</h3>
+            <h3 id="avgSpeedH-text"><span style="font-size: 1.15em;">🟡</span> m/s</h3>
+            <h3 id="avgSpeedL-text"><span style="font-size: 0.8em;">🔴</span> m/s</h3>
         </section>
         <hr>
         <section class="graphs-section">

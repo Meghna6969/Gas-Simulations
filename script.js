@@ -313,7 +313,6 @@ function updateContainer(size) {
             particle.mesh.position.x = Math.sign(particle.mesh.position.x) * (currentBoxBounds - 0.1);
         }
     });
-
 }
 function updateUIElements() {
     const n = allParticles.length * Moles_Per_Particle;
