@@ -36,7 +36,7 @@ let isPaused = false;
 let isGravityStratOn = false;
 let isEffusioning = false;
 let holeMesh;
-
+let hasExploded = false;
 
 const heavyParticlesInput = document.getElementById('heavyParticles-input');
 const heavyParticlesSlider = document.getElementById('heavyParticles-slider');
@@ -100,7 +100,7 @@ stepButton.addEventListener('click', () => {
 });
 gravityStratCheckbox.addEventListener('change', (e) => {
     isGravityStratOn = e.target.checked;
-}); 
+});
 effusionCheckbox.addEventListener('change', (e) => {
     isEffusioning = e.target.checked;
     holeMesh.visible = isEffusioning;
@@ -117,6 +117,9 @@ warningResetBtn.addEventListener('click', () => {
     createParticles(150, 'light');
     temperatureInput.value = ROOM_TEMP;
     temperatureSlider.value = ROOM_TEMP;
+
+    hasExploded = false;
+    warningPanel.style.display
 
 });
 
@@ -253,39 +256,90 @@ function updateParticles() {
         //particle.velocity.normalize().multiplyScalar(speed);
         particle.velocity.multiplyScalar(scaleFactor);
 
-        if(isGravityStratOn){
+        if (isGravityStratOn) {
             particle.velocity.y -= GRAVITY * simSpeed;
         }
         const movementStep = particle.velocity.clone().multiplyScalar(simSpeed);
         particle.mesh.position.add(movementStep);
 
-        const radius = particle.radius;
-        const currentSpeed = particle.velocity.length();
-        const impactForce = currentSpeed * particle.massMultiplier;
-        if (letCollisions) {
-            if (Math.abs(particle.mesh.position.x) > (boxSize / 2) - radius) {
-                particle.velocity.x *= -1;
-                particle.mesh.position.x = Math.sign(particle.mesh.position.x) * ((boxSize / 2) - radius);
-                wallHitsPerFrame++;
-                totalImpactForce += impactForce;
-            }
-            const staticBounds = boxSize / 2;
-            if (Math.abs(particle.mesh.position.y) > (staticBounds - radius)) {
-                particle.velocity.y *= -1;
-                particle.mesh.position.y = Math.sign(particle.mesh.position.y) * (staticBounds - radius);
-                wallHitsPerFrame++;
-                totalImpactForce += impactForce;
-            }
-            // This to the z wall
-            if (Math.abs(particle.mesh.position.z) > staticBounds - radius) {
-                particle.velocity.z *= -1;
-                particle.mesh.position.z = Math.sign(particle.mesh.position.z) * (staticBounds - radius);
-                wallHitsPerFrame++;
+        if (!hasExploded) {
+            const radius = particle.radius;
+            const currentSpeed = particle.velocity.length();
+            const impactForce = currentSpeed * particle.massMultiplier;
+            const bound = boxSize / 2;
+            const limit = bound - radius;
+            if (letCollisions) {
+                if (particle.mesh.position.x > limit) {
+                    let escaped = false;
+                    if (isEffusioning) {
+                        const distSquared = (particle.mesh.position.y * particle.mesh.position.y) + (particle.mesh.position.z * particle.mesh.position.z);
+                        if (distSquared < (holeSize * holeSize)) {
+                            escaped = true;
+                        }
+                    }
+                    if (!escaped) {
+                        particle.velocity.x *= -1;
+                        particle.mesh.position.x = limit;
+                        wallHitsPerFrame++;
+                        totalImpactForce += impactForce;
+                    }
+                }
+                else if (particle.mesh.position.x < -limit) {
+                    particle.velocity.x *= -1;
+                    particle.mesh.position.x = -limit;
+                    wallHitsPerFrame++;
+                    totalImpactForce += impactForce;
+                }
+                const staticBounds = boxSize / 2;
+                if (Math.abs(particle.mesh.position.y) > (staticBounds - radius)) {
+                    particle.velocity.y *= -1;
+                    particle.mesh.position.y = Math.sign(particle.mesh.position.y) * (staticBounds - radius);
+                    wallHitsPerFrame++;
+                    totalImpactForce += impactForce;
+                }
+                // This to the z wall
+                if (Math.abs(particle.mesh.position.z) > staticBounds - radius) {
+                    particle.velocity.z *= -1;
+                    particle.mesh.position.z = Math.sign(particle.mesh.position.z) * (staticBounds - radius);
+                    wallHitsPerFrame++;
+                }
             }
         }
 
 
     });
+
+    // BasicallY deleting particles that escaped the box
+    // For Memory you could keep this block but for cool effects you could remove it
+    const escapedLimit = (boxSize / 2) + 0.5;
+    let needsRebuild = false;
+    const isGone = (p) => p.mesh.position.x > escapedLimit;
+
+    // For heavy Particles
+    for (let i = allParticlesH.length - 1; i >= 0; i--) {
+        if (isGone(allParticlesH[i])) {
+            scene.remove(allParticlesH[i].mesh);
+            allParticlesH[i].mesh.geometry.dispose();
+            allParticlesH[i].mesh.material.dispose();
+            allParticlesH.splice(i, 1);
+            needsRebuild = true;
+        }
+    }
+    // For Light Particles
+    for (let i = allParticlesL.length - 1; i >= 0; i--) {
+        if (isGone(allParticlesL[i])) {
+            scene.remove(allParticlesL[i].mesh);
+            allParticlesL[i].mesh.geometry.dispose();
+            allParticlesL[i].mesh.material.dispose();
+            allParticlesL.splice(i, 1);
+            needsRebuild = true;
+        }
+    }
+    if (needsRebuild) {
+        allParticles = [...allParticlesH, ...allParticlesL];
+    }
+    //allParticles = [...allParticlesH, ...allParticlesL];
+
 }
 function updateUIElements() {
     // Average Speed Calculation
@@ -445,9 +499,9 @@ function updateKEGraph() {
     const lightData = createHistograms(allParticlesL, 'ke', numBins, 0, globalMax);
     drawGraph('ke-canvas', heavyData, lightData, 'Kinetic Energy');
 }
-function createHoleVisual(){
+function createHoleVisual() {
     const geometry = new THREE.EdgesGeometry(new THREE.CircleGeometry(holeSize, 32));
-    const material = new THREE.LineBasicMaterial({color: 0xff0000});
+    const material = new THREE.LineBasicMaterial({ color: 0xff0000 });
     holeMesh = new THREE.LineSegments(geometry, material);
     holeMesh.position.set(boxSize / 2, 0, 0);
     holeMesh.rotation.y = Math.PI / 2;
@@ -455,23 +509,36 @@ function createHoleVisual(){
     scene.add(holeMesh);
 }
 function animate() {
+    if (isEffusioning) {
+        console.log(isEffusioning);
+        heavyParticlesSlider.value = allParticlesH.length;
+        heavyParticlesInput.value = allParticlesH.length;
+        lightParticlesInput.value = allParticlesL.length;
+        lightParticlesSlider.value = allParticlesL.length;
+    }
+
     if (!isPaused) {
         stepButton.disabled = true;
         updateParticles();
         updateUIElements();
     }
-    else{
+    else {
         stepButton.disabled = false;
     }
-    console.log(currentPressure);
-    if (currentPressure > maxPressure) {
-        warningPanel.style.display = 'flex';
-        console.log(currentPressure);
-        letCollisions = false;
-    }
-    else {
+    if(currentPressure > maxPressure || hasExploded){
+        if(!hasExploded){
+            hasExploded = true;
+            if(holeMesh) {
+                holeMesh.visible = false;
+                console.log("Explosion");
+            }
+            warningPanel.style.display = 'flex';
+        }
+    }else{
         warningPanel.style.display = 'none';
-        letCollisions = true;
+        if(isEffusioning && holeMesh) {
+            holeMesh.visible = true;
+        }
     }
     requestAnimationFrame(animate);
     controls.update();
