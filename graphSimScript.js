@@ -167,15 +167,24 @@ function updateParticles() {
             const p2 = allParticles[j];
             const minDistance = p1.radius + p2.radius;
             const dist = p1.mesh.position.distanceTo(p2.mesh.position);
+
             if (dist < minDistance) {
-                const tempVel = p1.velocity.clone();
-                p1.velocity.copy(p2.velocity);
-                p2.velocity.copy(tempVel);
+                const normal = p1.mesh.position.clone().sub(p2.mesh.position).normalize();
+                const relativeVel = p1.velocity.clone().sub(p2.velocity);
+                const velocityAlongNormal = relativeVel.dot(normal);
+
+                if(velocityAlongNormal > 0) continue;
+                const m1 = p1.massMultiplier;
+                const m2 = p2.massMultiplier;
+                const impulse = (2 * velocityAlongNormal) / (m1 + m2);
+                
+                p1.velocity.sub(normal.clone().multiplyScalar(impulse * m2));
+                p2.velocity.add(normal.clone().multiplyScalar(impulse * m1));
 
                 const overlap = minDistance - dist;
-                const seperationForce = p1.mesh.position.clone().sub(p2.mesh.position).normalize().multiplyScalar(overlap / 2);
-                p1.mesh.position.add(seperationForce);
-                p2.mesh.position.sub(seperationForce);
+                const seperation = normal.multiplyScalar(overlap / 2);
+                p1.mesh.position.add(seperation);
+                p2.mesh.position.sub(seperation);
             }
         }
     }
@@ -225,15 +234,15 @@ function updateUIElements() {
         avgSpeedHeavyText.innerHTML = `<span style="font-size: 1.15em;">🟡</span> ${avgSpeedH.toExponential(2)} m/s`;
     }
     else{
-        avgSpeedHeavyText.innerHTML = `--`;
+        avgSpeedHeavyText.innerHTML = `<span style="font-size: 1.15em;">‎🟡</span>‎ ‎  -- m/s`;
     }
     if(allParticlesL.length > 0){
         const totalSpeedL = allParticlesL.reduce((sum, p) => sum + p.velocity.length(), 0);
         const avgSpeedL = (totalSpeedL / allParticlesL.length) * SIMULATION_TO_METERS * 60;
-        avgSpeedLightText.innerHTML = `<span style="font-size: 0.8em;">‎🔴</span>‎ ‎ ${avgSpeedL.toExponential(2)} m/s`;
+        avgSpeedLightText.innerHTML = `<span style="font-size: 0.8em;">‎ 🔴</span>‎ ‎ ${avgSpeedL.toExponential(2)} m/s`;
     }
     else{
-        avgSpeedLightText.innerHTML = `--`;
+        avgSpeedLightText.innerHTML = `<span style="font-size: 0.8em;">‎ 🔴</span>‎ ‎ -- m/s`;
     }
 
     //Pressure Calculation for Explosion
@@ -247,6 +256,114 @@ function updateUIElements() {
     currentPressure = pressure / 101325;
     pressureText.textContent = currentPressure.toFixed(2);
     tempText.textContent = T.toFixed(1);
+
+    updateSpeedGraph();
+    updateKEGraph();
+}
+function createHistograms(particles, property, numBins){
+    if(particles.length === 0) return {bins: [], counts: []};
+    
+    const values = particles.map(p => {
+        if(property === 'speed'){
+            return p.velocity.length();
+        }else if(property === 'ke'){
+            const v = p.velocity.length();
+            return 0.5 * p.massMultiplier * v * v;
+        }
+        else{
+            // do nothing
+            // intentionally left blank so that any input other than above return an error
+        }
+    });
+
+    const minVal = Math.min(...values);
+    const maxVal = Math.max(...values);
+    const range = maxVal - minVal;
+    const paddedMin = minVal - range * 0.05;
+    const binWidth = (maxVal - minVal) / numBins;
+
+    const bins = [];
+    const counts = new Array(numBins).fill(0);
+
+    for(let i = 0; i < numBins; i++){
+        bins.push(minVal + i * binWidth);
+    }
+    values.forEach(val => {
+        const binIndex = Math.min(Math.floor((val - minVal) / binWidth), numBins - 1);
+        counts[binIndex]++;
+    });
+
+    return {bins, counts};
+
+}
+function drawGraph(canvasId, heavyData, lightData, xlabel){
+    const canvas = document.getElementById(canvasId);
+
+    const ctx = canvas.getContext('2d');
+    const width = canvas.width;
+    const height = canvas.height;
+
+    ctx.clearRect(0, 0, width, height);
+    const maxCount = Math.max(...heavyData.counts, ...lightData.counts, 1);
+
+    const padding = 40;
+    const graphWidth = width - 2 * padding;
+    const graphHeight = height - 2 * padding;
+
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(padding, padding);
+    ctx.lineTo(padding, height - padding);
+    ctx.lineTo(width - padding, height - padding);
+    ctx.stroke();
+
+    // Draw Heavy Particles
+    if(heavyData.bins.length > 0){
+        ctx.fillStyle = 'rgba(255, 211, 0, 0.6)';
+        const binWidth  = graphWidth / heavyData.bins.length;
+
+        heavyData.counts.forEach((count, i) => {
+            const barHeight = (count / maxCount) * graphHeight;
+            const x = padding + i * binWidth;
+            const y = height - padding - barHeight;
+            ctx.fillRect(x, y, binWidth * 0.9, barHeight);
+        });
+    }
+    if(lightData.bins.length > 0){
+        ctx.fillStyle = 'rgba(255, 0, 0, 0.6)';
+        const binWidth = graphWidth / lightData.bins.length;
+
+        lightData.counts.forEach((count, i) => {
+            const barHeight = (count / maxCount) * graphHeight;
+            const x = padding + i * binWidth;
+            const y = height - padding - barHeight;
+            ctx.fillRect(x, y, binWidth * 0.9, barHeight);
+        });
+    }
+    //Draw label
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '12px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText(xlabel, width / 2, height - 10);
+
+    ctx.save();
+    ctx.translate(15, height / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillText('Count', 0, 0);
+    ctx.restore();
+}
+function updateSpeedGraph(){
+    const numBins = 20;
+    const heavyData = createHistograms(allParticlesH, 'speed', numBins);
+    const lightData = createHistograms(allParticlesL, 'speed', numBins);
+    drawGraph('speed-canvas', heavyData, lightData, 'Speed');
+}
+function updateKEGraph(){
+    const numBins = 20;
+    const heavyData = createHistograms(allParticlesH, 'ke', numBins);
+    const lightData = createHistograms(allParticlesL, 'ke', numBins);
+    drawGraph('ke-canvas', heavyData, lightData, 'Something');
 }
 function animate() {
     updateUIElements();

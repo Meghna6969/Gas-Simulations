@@ -128,7 +128,7 @@ hr{
     width: 340px;
     padding: 20px;
     gap: 10px;
-
+    border-radius: 5px;
     max-height: 40vh;
     background-color: rgba(255, 75, 75, 0.817);
     color: white;
@@ -168,4 +168,14 @@ hr{
     display: flex;
     flex-direction: column;
     gap: 20px;
+}
+canvas{
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 5px;
+    display: block;
+}
+.keGraph, .speedGraph{
+    display: flex;
+    flex-direction: column;
+    align-items: center;
 }
