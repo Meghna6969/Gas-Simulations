@@ -5,7 +5,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 const R = 8.314; // Ideal Gas Constant
 const Moles_Per_Particle = 1.66e-23;
 const nmToMeters = 1e-9;
-const ROOM_TEMP = 293.15;
+const ROOM_TEMP = 293;
 const boxSize = 3;
 const baseSpeed = 0.015;
 const particleRadiusH = 0.05;
@@ -25,11 +25,13 @@ let currentBoxBounds = boxSize / 2;
 let wallCollisionCount = 0;
 let isCountingCollisions = false;
 let collisionTimer = 0;
-let timeSpeed = 0;
+let timeSpeed = 1;
 let container;
 let tempMode = "relative";
 let targetSpeedMultiplier = 1;
 let currentSpeedMultiplier = 1.0;
+let targetSpecificTemp = ROOM_TEMP;
+let currentTemp = ROOM_TEMP;
 
 const amountParticlesSliderH = document.getElementById('amountOfParticlesH');
 const amountParticlesSliderL = document.getElementById('amountOfParticlesL');
@@ -50,9 +52,12 @@ const resetTempSpecificButton = document.getElementById('resetSpecificTemps');
 const startCountingButton = document.getElementById('startCounting');
 const stopCountingButton = document.getElementById('stopCounting');
 const resetCollButton = document.getElementById('resetCollBtn');
-const tempModeSelector = document.querySelectorAll('input[name="tempMode"');
-const relativeSlider = document.getElementById('relative-temp-group');
-const specificSlider = document.getElementById('specific-temp-group');
+const tempModeSelector = document.querySelectorAll('input[name="tempMode"]');
+const relativeSliderGroup = document.getElementById('relative-temp-group');
+const specificSliderGroup = document.getElementById('specific-temp-group');
+const temperatureUnitSelector = document.getElementById('temperature-unit-select');
+const pressureUnitSelector = document.getElementById('pressure-unit-select');
+const timeSpeedSlider = document.getElementById('timeSpeed');
 
 tempSlider.addEventListener('mouseup', function () {
     tempSlider.value = 0;
@@ -74,7 +79,7 @@ volumeSlider.addEventListener('input', function () {
 amountParticlesSliderH.addEventListener('input', function () {
     createParticles(parseFloat(amountParticlesSliderH.value), 'heavy');
 });
-amountParticlesSliderL.addEventListener('input', function(){
+amountParticlesSliderL.addEventListener('input', function () {
     createParticles(parseFloat(amountParticlesSliderL.value), 'light');
 });
 tempSlider.addEventListener('input', function () {
@@ -87,6 +92,8 @@ resetTempSpecificButton.addEventListener('click', function () {
     currentSpeedMultiplier = 1;
     tempSpecificSlider.value = ROOM_TEMP;
     tempSpecificInput.value = ROOM_TEMP;
+    clariText.style.color = 'white';
+    clariText.textContent = 'No change in temperature!';
     updateHeatOrCold(0);
 });
 startCountingButton.addEventListener('click', () => {
@@ -102,29 +109,33 @@ resetCollButton.addEventListener('click', () => {
     collisionTimer = 0;
 });
 stepButton.addEventListener('click', () => {
-    if(isPaused){
+    if (isPaused) {
         updateParticles();
         elaspedTime += 0.01 * timeSpeed;
         updateTimeDisplay();
     }
+});
+timeSpeedSlider.addEventListener('input', () => {
+    timeSpeed = parseFloat(timeSpeedSlider.value);
 });
 // Temperature slider type
 tempModeSelector.forEach(radio => {
     radio.addEventListener('change', (e) => {
         tempMode = e.target.value;
         if (tempMode === 'relative') {
-            relativeSlider.style.display = 'flex';
-            specificSlider.style.display = 'none';
+            relativeSliderGroup.style.display = 'flex';
+            specificSliderGroup.style.display = 'none';
             targetSpeedMultiplier = Math.pow(2, parseFloat(tempSlider.value));
         }
         else {
-            relativeSlider.style.display = 'none';
-            specificSlider.style.display = 'flex';
-            updateSpecificTemp(parseFloat(document.getElementById('specificTempSlider').value));
+            relativeSliderGroup.style.display = 'none';
+            specificSliderGroup.style.display = 'flex';
+            updateSpecificTemp(tempSpecificSlider.value);
         }
     })
 });
 function updateSpecificTemp(kelvin) {
+    console.log('HERE IN THE SPECIFIC THING');
     targetSpecificTemp = kelvin;
     updateHeatOrCold(kelvin);
     targetSpeedMultiplier = kelvin / ROOM_TEMP; //divide by room temp so that you get the multiplier required to reach a certain temp
@@ -151,7 +162,7 @@ function setupThreejs() {
 function setupObjects() {
     const boxGeometry = new THREE.BoxGeometry(boxSize, boxSize, boxSize);
     const edgeGeo = new THREE.EdgesGeometry(boxGeometry);
-    const lineMaterial = new THREE.LineBasicMaterial({ color: 0xffffff, linewidth: 5});
+    const lineMaterial = new THREE.LineBasicMaterial({ color: 0xffffff, linewidth: 5 });
     container = new THREE.LineSegments(edgeGeo, lineMaterial);
     scene.add(container);
 }
@@ -174,7 +185,7 @@ function createParticles(count, type) {
         allParticlesL = [];
     }
     // change in the velocity and physics logic
-    
+
     const radius = isHeavy ? particleRadiusH : particleRadiusL;
     const color = isHeavy ? 0xffd300 : 0xff0000;
     const massMultiplier = isHeavy ? 1.0 : 2.5;
@@ -189,7 +200,7 @@ function createParticles(count, type) {
         const particle = {
             mesh: mesh,
             type: type,
-            radius:radius,
+            radius: radius,
             velocity: new THREE.Vector3((Math.random() - 0.5) * 0.05 * massMultiplier, (Math.random() - 0.5) * 0.05 * massMultiplier, (Math.random() - 0.5) * 0.05 * massMultiplier),
             massMultiplier: massMultiplier
         };
@@ -205,13 +216,16 @@ function createParticles(count, type) {
     allParticles = [...allParticlesH, ...allParticlesL];
 
 }
-function updateParticles() {
+function updateParticles(timeScale = 1) {
     const diff = targetSpeedMultiplier - currentSpeedMultiplier;
 
-    if (Math.abs(diff) > 0.0001) {
-        currentSpeedMultiplier += diff * speedTransitionRate;
-    } else {
-        currentSpeedMultiplier = targetSpeedMultiplier;
+    if(Math.abs(diff) > 0.0001){
+        const step = speedTransitionRate * timeScale;
+        if(Math.abs(diff) < step){
+            currentSpeedMultiplier = targetSpeedMultiplier;
+        }else{
+            currentSpeedMultiplier += Math.sign(diff) * step;
+        }
     }
 
     for (let i = 0; i < allParticles.length; i++) {
@@ -252,7 +266,7 @@ function updateParticles() {
             particle.mesh.position.x = Math.sign(particle.mesh.position.x) * (currentBoxBounds - radius);
             wallHitsPerFrame++;
             totalImpactForce += impactForce;
-            if(isCountingCollisions) wallCollisionCount++;
+            if (isCountingCollisions) wallCollisionCount++;
         }
         //This to the y wall
         const staticBounds = boxSize / 2;
@@ -261,18 +275,18 @@ function updateParticles() {
             particle.mesh.position.y = Math.sign(particle.mesh.position.y) * (staticBounds - radius);
             wallHitsPerFrame++;
             totalImpactForce += impactForce;
-            if(isCountingCollisions) wallCollisionCount++;
+            if (isCountingCollisions) wallCollisionCount++;
         }
         // This to the z wall
         if (Math.abs(particle.mesh.position.z) > staticBounds - radius) {
             particle.velocity.z *= -1;
             particle.mesh.position.z = Math.sign(particle.mesh.position.z) * (staticBounds - radius);
             wallHitsPerFrame++;
-            if(isCountingCollisions) wallCollisionCount++;
+            if (isCountingCollisions) wallCollisionCount++;
         }
 
         // Some visual feedback for pressure so users know how the pressure is drastically increased
-        if(wallHitsPerFrame > 0){
+        if (wallHitsPerFrame > 0) {
             const wallCollisionIntensity = Math.log10(wallHitsPerFrame + 1) * 0.3;
             const forceIntensity = totalImpactForce * 0.5;
             containerPressureIntensityIndicator = Math.min(1, containerPressureIntensityIndicator + wallCollisionIntensity + forceIntensity);
@@ -286,22 +300,38 @@ function updateHeatOrCold(intensity) {
     //radial-gradient(circle at center, transparent 10%, rgba(0, 123, 255, 0.3), transparent 50%);
     //radial-gradient(circle at center, transparent 10%, rgba(255, 0, 0, 0.3), transparent 50%);
     if (tempMode === 'relative') {
-
-    }
-    if (targetSpeedMultiplier > 1) {
-        vignette.style.background = 'radial-gradient(circle at center, transparent 10%, rgba(255, 0, 0, 0.4), transparent 70%)';
-        clariText.style.color = 'red';
-        clariText.textContent = 'Heating the container!';
-    }
-    else if (targetSpeedMultiplier === 1) {
-        clariText.style.color = 'white';
-        clariText.textContent = 'No change in temperature!';
+        if (targetSpeedMultiplier > 1) {
+            vignette.style.background = 'radial-gradient(circle at center, transparent 10%, rgba(255, 0, 0, 0.4), transparent 70%)';
+            clariText.style.color = 'red';
+            clariText.textContent = 'Heating the container!';
+        }
+        else if (targetSpeedMultiplier === 1) {
+            clariText.style.color = 'white';
+            clariText.textContent = 'No change in temperature!';
+        }
+        else {
+            vignette.style.background = 'radial-gradient(circle at center, transparent 10%, rgba(0, 123, 255, 0.4), transparent 70%)';
+            clariText.style.color = 'cyan';
+            clariText.textContent = 'Cooling the container!';
+        }
     }
     else {
-        vignette.style.background = 'radial-gradient(circle at center, transparent 10%, rgba(0, 123, 255, 0.4), transparent 70%)';
-        clariText.style.color = 'cyan';
-        clariText.textContent = 'Cooling the container!';
+        if (targetSpecificTemp > currentTemp) {
+            vignette.style.background = 'radial-gradient(circle at center, transparent 10%, rgba(255, 0, 0, 0.4), transparent 70%)';
+            clariText.style.color = 'red';
+            clariText.textContent = 'Heating the container!';
+        }
+        else if (targetSpecificTemp === currentTemp) {
+            clariText.style.color = 'white';
+            clariText.textContent = 'No change in temperature!';
+        }
+        else {
+            vignette.style.background = 'radial-gradient(circle at center, transparent 10%, rgba(0, 123, 255, 0.4), transparent 70%)';
+            clariText.style.color = 'cyan';
+            clariText.textContent = 'Cooling the container!';
+        }
     }
+
     vignette.style.opacity = Math.abs(intensity) * 0.5;
 
 }
@@ -317,6 +347,7 @@ function updateContainer(size) {
 function updateUIElements() {
     const n = allParticles.length * Moles_Per_Particle;
     let T = currentSpeedMultiplier * ROOM_TEMP;
+    currentTemp = T;
     //const V = parseFloat(volumeSlider.value) * boxSize * boxSize;
 
     const widthNM = parseFloat(volumeSlider.value) * 5;
@@ -356,43 +387,39 @@ function animate() {
     // Like those music visualalizers; <- Work on this tomorrow GN.
     containerGlowIntensity *= 0.90;
     let targetColor;
-    if(containerPressureIntensityIndicator < 0.3){
+    if (containerPressureIntensityIndicator < 0.3) {
         targetColor = new THREE.Color(0xffffff).lerp(new THREE.Color(0xffff00), containerPressureIntensityIndicator * 3.33);
     }
-    else if(containerPressureIntensityIndicator < 0.6){
+    else if (containerPressureIntensityIndicator < 0.6) {
         targetColor = new THREE.Color(0xffff00).lerp(new THREE.Color(0xff8800), (containerPressureIntensityIndicator - 0.3) * 3.33);
-    }else{
+    } else {
         targetColor = new THREE.Color(0xff8800).lerp(new THREE.Color(0xff0000), (containerPressureIntensityIndicator - 0.6) * 2.5);
     }
     container.material.color.copy(targetColor);
     container.material.opacity = 0.5 + (containerGlowIntensity * 0.5);
 
-    if(collisionsCheckBox.checked){
+    if (collisionsCheckBox.checked) {
         collisionPanel.style.display = 'flex';
     }
-    else{
+    else {
         collisionPanel.style.display = 'none';
     }
     wallCollisionCounterText.textContent = wallCollisionCount;
-    if(isCountingCollisions && !isPaused){
+    if (isCountingCollisions && !isPaused) {
         collisionTimer += 0.016 * timeSpeed;
     }
     wallCollisionTimer.textContent = collisionTimer.toFixed(2);
 
-    if(isCountingCollisions){
+    if (isCountingCollisions) {
         collisionReset.disabled = true;
         collisionStop.disabled = false;
     }
-    else{
+    else {
         collisionReset.disabled = false;
         collisionStop.disabled = true;
     }
 
     if (!isPaused) {
-        const updates = Math.max(1, Math.floor(timeSpeed));
-        for(let i = 0; i < updates; i++){
-            updateParticles();
-        }
         updateParticles();
         document.getElementById('stepBtn').disabled = true;
         elaspedTime += 0.016 * timeSpeed;
