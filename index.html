@@ -52,20 +52,29 @@
         <p>Simulate how gas interact and react based on different temperature, pressure, and volume</p>
         <section class="panel-section">
             <div class="stats-group">
-                <label class="displayLabels">Temperature</label>
-                <div class="value"><span id="temp-display">293</span>K</div>
+                <h3>🌡 Temperature: <span class="value-texts" id="temp-display">10</span></h3>
+                <select id="temperature-unit-select" class="unit-select">
+                    <option value="K">K</option>
+                    <option value="C">°C</option>
+                    <option value="F">°F</option>
+                </select>
             </div>
             <div class="stats-group">
-                <label class="displayLabels">Pressure</label>
-                <div class="value"><span id="pressure-display">0.00</span>atm</div>
+                <h3>⏲️ Pressure: <span class="value-texts" id="pressure-display">0.00</span></h3>
+                <select id="pressure-unit-select" class="unit-select">
+                    <option value="atm">atm</option>
+                    <option value="kPa">kPa</option>
+                    <option value="Pa">Pa</option>
+                    <option value="psi">psi</option>
+                </select>
             </div>
             <div class="stats-group">
-                <label class="displayLabels">Heavy Particles</label>
-                <div class="value"><span id="heavy-particles-display">0.00</span>mol</div>
+                <h3>🟡 Heavy Particles: <span class="value-texts" id="heavy-particles-display">0.00</span></h3>
             </div>
             <div class="stats-group">
                 <label class="displayLabels">Light Particles</label>
                 <div class="value"><span id="light-particles-display">0.00</span>mol</div>
+                <h3>🔴</h3>
             </div>
         </section>
         <hr>

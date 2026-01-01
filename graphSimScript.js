@@ -39,6 +39,7 @@ let isEffusioning = false;
 let holeMesh;
 let hasExploded = false;
 let currentBoxBounds = boxSize;
+let physicsSteps = 1; // This is how you control the simulation speed
 
 const heavyParticlesInput = document.getElementById('heavyParticles-input');
 const heavyParticlesSlider = document.getElementById('heavyParticles-slider');
@@ -217,7 +218,7 @@ function createParticles(count, type) {
     }
     allParticles = [...allParticlesH, ...allParticlesL];
 }
-function updateParticles() {
+function updateParticles(timeScale = 1) {
     const oldMultiplier = currentSpeedMultiplier;
     if (currentSpeedMultiplier < targetSpeedMultiplier) {
         currentSpeedMultiplier += stepSize;
@@ -272,12 +273,13 @@ function updateParticles() {
         //const speed = baseSpeed * currentSpeedMultiplier * massFactor;
 
         //particle.velocity.normalize().multiplyScalar(speed);
-        particle.velocity.multiplyScalar(scaleFactor);
+        // particle.velocity.multiplyScalar(scaleFactor);
 
         if (isGravityStratOn) {
             particle.velocity.y -= GRAVITY * simSpeed;
         }
-        const movementStep = particle.velocity.clone().multiplyScalar(simSpeed);
+        // const movementStep = particle.velocity.clone().multiplyScalar(simSpeed);
+        const movementStep = particle.velocity.clone().multiplyScalar(timeScale);
         particle.mesh.position.add(movementStep);
 
         if (!hasExploded) {
@@ -390,11 +392,36 @@ function updateUIElements() {
     const depthMeters = (boxSize * scaleFactor) * nmToMeters;
 
     const volume = widthMeters * heightMeters * depthMeters;
-    const pressure = (n * R * T) / volume;
-    currentPressure = pressure / 101325;
+    const pressurePa = (n * R * T) / volume;
+    const pressureATM = pressurePa / 101325;
 
-    pressureText.textContent = currentPressure.toFixed(2);
-    tempText.textContent = T.toFixed(1);
+    currentPressure = pressureATM;
+
+    //Pressure text unit conversions
+    let displayPressure = 0;
+    const pUnit = pressureUnitSelect.value;
+    if (pUnit === 'atm') {
+        displayPressure = pressureATM;
+    } else if (pUnit === 'kPa') {
+        displayPressure = pressurePa / 1000;
+    } else if (pUnit === 'Pa') {
+        displayPressure = pressurePa;
+    } else if (pUnit === 'psi') {
+        displayPressure = pressureATM * 14.696;
+    }
+    pressureText.textContent = isNaN(displayPressure) ? "0.00" : displayPressure.toFixed(2);
+
+    // Temperature text unit conversions
+    let displayTemperature = 0;
+    const tUnit = temperatureUnitSelect.value;
+    if (tUnit === 'K') {
+        displayTemperature = T;
+    } else if (tUnit === 'C') {
+        displayTemperature = T - 273.15;
+    } else if (tUnit === 'F') {
+        displayTemperature = (T - 273.15) * (9 / 5) + 32;
+    }
+    tempText.textContent = displayTemperature.toFixed(1);
     frameCount++;
     if (frameCount % 10 === 0) {
         updateSpeedGraph();
@@ -532,11 +559,11 @@ function createHoleVisual() {
     holeMesh.visible = false;
     scene.add(holeMesh);
 }
-function updateContainer(width){
+function updateContainer(width) {
     container.scale.x = width / boxSize;
     currentBoxBounds = width / 2;
     allParticles.forEach(particle => {
-        if(Math.abs(particle.mesh.position.x) > currentBoxBounds - 0.1){
+        if (Math.abs(particle.mesh.position.x) > currentBoxBounds - 0.1) {
             particle.mesh.position.x = Math.sign(particle.mesh.position.x) * (currentBoxBounds - 0.1);
         }
     });
@@ -552,22 +579,35 @@ function animate() {
 
     if (!isPaused) {
         stepButton.disabled = true;
-        updateParticles();
+
+        const maxStepSize = 1;
+        const totalSteps = Math.ceil(simSpeed / maxStepSize);
+
+        const dtPerStep = simSpeed / totalSteps;
+
+        //const loops = Math.min(Math.floor(simSpeed), 20);
+        //const iterations = Math.max(1, loops);
+
+        for (let i = 0; i < totalSteps; i++) {
+            updateParticles(dtPerStep);
+            if (currentPressure > maxPressure || hasExploded) {
+                if (!hasExploded) {
+                    hasExploded = true;
+                    if (holeMesh) {
+                        holeMesh.visible = false;
+                        warningPanel.style.display = 'flex';
+                    }
+                    break;
+                }
+            }
+        }
         updateUIElements();
     }
     else {
         stepButton.disabled = false;
     }
-    if (currentPressure > maxPressure || hasExploded) {
-        if (!hasExploded) {
-            hasExploded = true;
-            if (holeMesh) {
-                holeMesh.visible = false;
-                console.log("Explosion");
-            }
-            warningPanel.style.display = 'flex';
-        }
-    } else {
+
+    if (!hasExploded && currentPressure <= maxPressure) {
         warningPanel.style.display = 'none';
         if (isEffusioning && holeMesh) {
             holeMesh.visible = true;

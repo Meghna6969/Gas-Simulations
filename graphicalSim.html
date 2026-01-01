@@ -90,7 +90,7 @@
         <div class="speed-control">
             <label for="timeSpeed">Simulation Speed</label>
             <div class="control-group">
-                <input type="range" min="0.1" max="2" value="1" step="0.1" class="slider" id="timeSpeed">
+                <input type="range" min="0.1" max="2" step="0.1" value="1" class="slider" id="timeSpeed">
                 <input type="number" class="manual-input" id="timeSpeedDisplay" value="1" step="0.1" min="0.1" max="5">
             </div>
             <span style="font-size: 0.9em;">x<span id="speedMultiplierText">1.0</span></span>
@@ -101,13 +101,13 @@
         <section class="properties">
             <h3>Properties</h3>
             <div style="display: flex; align-items: center; gap: 12px;">
-                 <h3>⏲️ Pressure: <span class="value-texts" id="pressure-text">10</span></h3>
-                 <select id="pressure-unit-select" class="unit-select">
+                <h3>⏲️ Pressure: <span class="value-texts" id="pressure-text">10</span></h3>
+                <select id="pressure-unit-select" class="unit-select">
                     <option value="atm">atm</option>
                     <option value="kPa">kPa</option>
                     <option value="Pa">Pa</option>
                     <option value="psi">psi</option>
-                 </select>
+                </select>
             </div>
             <div style="display: flex; align-items: center; gap: 12px;">
                 <h3>🌡Temperature: <span class="value-texts" id="temperature-text">10</span></h3>
@@ -117,7 +117,7 @@
                     <option value="F">°F</option>
                 </select>
             </div>
-            
+
         </section>
         <hr>
         <section class="AvgSpeed">

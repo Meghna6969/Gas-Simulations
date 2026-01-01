@@ -50,6 +50,9 @@ const resetTempSpecificButton = document.getElementById('resetSpecificTemps');
 const startCountingButton = document.getElementById('startCounting');
 const stopCountingButton = document.getElementById('stopCounting');
 const resetCollButton = document.getElementById('resetCollBtn');
+const tempModeSelector = document.querySelectorAll('input[name="tempMode"');
+const relativeSlider = document.getElementById('relative-temp-group');
+const specificSlider = document.getElementById('specific-temp-group');
 
 tempSlider.addEventListener('mouseup', function () {
     tempSlider.value = 0;
@@ -106,12 +109,9 @@ stepButton.addEventListener('click', () => {
     }
 });
 // Temperature slider type
-document.querySelectorAll('input[name="tempMode"]').forEach(radio => {
+tempModeSelector.forEach(radio => {
     radio.addEventListener('change', (e) => {
         tempMode = e.target.value;
-        const relativeSlider = document.getElementById('relative-temp-group');
-        const specificSlider = document.getElementById('specific-temp-group');
-
         if (tempMode === 'relative') {
             relativeSlider.style.display = 'flex';
             specificSlider.style.display = 'none';
