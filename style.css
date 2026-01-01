@@ -322,3 +322,35 @@ input[type="checkbox"]{
     display: flex;
     gap: 15px;
 }
+.warning-panel{
+    z-index: 10;
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 340px;
+    padding: 20px;
+    gap: 10px;
+    border-radius: 5px;
+    max-height: 40vh;
+    background-color: rgba(255, 75, 75, 0.817);
+    color: white;
+    display: flex;
+    flex-direction: column;
+}
+.warning-panel button{
+    cursor: pointer;
+    width: 100%;
+    padding: 12px;
+    border: none;
+    border-radius: 8px;
+    background-color: white;
+    color: #dc2626;
+    font-weight: bold;
+    font-size: 1rem;
+    transition: all 0.2s ease;
+}
+.warning-panel button:hover{
+    background-color: white;
+    transform: translateY(-2px);
+}

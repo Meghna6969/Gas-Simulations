@@ -11,6 +11,7 @@ const baseSpeed = 0.015;
 const particleRadiusH = 0.05;
 const particleRadiusL = 0.03;
 const speedTransitionRate = 0.0009;
+const maxPressure = 200;
 
 // Global Variables
 let scene, renderer, camera, controls;
@@ -32,6 +33,9 @@ let targetSpeedMultiplier = 1;
 let currentSpeedMultiplier = 1.0;
 let targetSpecificTemp = ROOM_TEMP;
 let currentTemp = ROOM_TEMP;
+let currentPressure;
+let letCollisions = true;
+let isExploded = false;
 
 const amountParticlesSliderH = document.getElementById('amountOfParticlesH');
 const amountParticlesSliderL = document.getElementById('amountOfParticlesL');
@@ -58,6 +62,10 @@ const specificSliderGroup = document.getElementById('specific-temp-group');
 const temperatureUnitSelector = document.getElementById('temperature-unit-select');
 const pressureUnitSelector = document.getElementById('pressure-unit-select');
 const timeSpeedSlider = document.getElementById('timeSpeed');
+const warningPanel = document.getElementById('warning-panel');
+const resetPressureBtn = document.getElementById('reset-pressure');
+const pressureText = document.getElementById('pressure-display');
+const tempText = document.getElementById('temp-display');
 
 tempSlider.addEventListener('mouseup', function () {
     tempSlider.value = 0;
@@ -118,6 +126,16 @@ stepButton.addEventListener('click', () => {
 timeSpeedSlider.addEventListener('input', () => {
     timeSpeed = parseFloat(timeSpeedSlider.value);
 });
+resetPressureBtn.addEventListener('click', () => {
+    warningPanel.style.display = 'none';
+    isExploded = false;
+    letCollisions = true;
+    containerPressureIntensityIndicator = 0;
+    createParticles(parseFloat(amountParticlesSliderH.value), 'heavy');
+    createParticles(parseFloat(amountParticlesSliderL.value), 'light');
+
+    updateHeatOrCold(0);
+})
 // Temperature slider type
 tempModeSelector.forEach(radio => {
     radio.addEventListener('change', (e) => {
@@ -219,11 +237,11 @@ function createParticles(count, type) {
 function updateParticles(timeScale = 1) {
     const diff = targetSpeedMultiplier - currentSpeedMultiplier;
 
-    if(Math.abs(diff) > 0.0001){
+    if (Math.abs(diff) > 0.0001) {
         const step = speedTransitionRate * timeScale;
-        if(Math.abs(diff) < step){
+        if (Math.abs(diff) < step) {
             currentSpeedMultiplier = targetSpeedMultiplier;
-        }else{
+        } else {
             currentSpeedMultiplier += Math.sign(diff) * step;
         }
     }
@@ -261,29 +279,33 @@ function updateParticles(timeScale = 1) {
         // Kinda improvising here; I know the actual force equation is P*A, but its only for visualization
         const impactForce = speed * massFactor;
         // Hit to the x wall
-        if (Math.abs(particle.mesh.position.x) > currentBoxBounds - radius) {
-            particle.velocity.x *= -1;
-            particle.mesh.position.x = Math.sign(particle.mesh.position.x) * (currentBoxBounds - radius);
-            wallHitsPerFrame++;
-            totalImpactForce += impactForce;
-            if (isCountingCollisions) wallCollisionCount++;
+        if (letCollisions) {
+            if (Math.abs(particle.mesh.position.x) > currentBoxBounds - radius) {
+                particle.velocity.x *= -1;
+                particle.mesh.position.x = Math.sign(particle.mesh.position.x) * (currentBoxBounds - radius);
+                wallHitsPerFrame++;
+                totalImpactForce += impactForce;
+                if (isCountingCollisions) wallCollisionCount++;
+            }
+            //This to the y wall
+            const staticBounds = boxSize / 2;
+            if (Math.abs(particle.mesh.position.y) > (staticBounds - radius)) {
+                particle.velocity.y *= -1;
+                particle.mesh.position.y = Math.sign(particle.mesh.position.y) * (staticBounds - radius);
+                wallHitsPerFrame++;
+                totalImpactForce += impactForce;
+                if (isCountingCollisions) wallCollisionCount++;
+            }
+            // This to the z wall
+            if (Math.abs(particle.mesh.position.z) > staticBounds - radius) {
+                particle.velocity.z *= -1;
+                particle.mesh.position.z = Math.sign(particle.mesh.position.z) * (staticBounds - radius);
+                wallHitsPerFrame++;
+                if (isCountingCollisions) wallCollisionCount++;
+            }
         }
-        //This to the y wall
-        const staticBounds = boxSize / 2;
-        if (Math.abs(particle.mesh.position.y) > (staticBounds - radius)) {
-            particle.velocity.y *= -1;
-            particle.mesh.position.y = Math.sign(particle.mesh.position.y) * (staticBounds - radius);
-            wallHitsPerFrame++;
-            totalImpactForce += impactForce;
-            if (isCountingCollisions) wallCollisionCount++;
-        }
-        // This to the z wall
-        if (Math.abs(particle.mesh.position.z) > staticBounds - radius) {
-            particle.velocity.z *= -1;
-            particle.mesh.position.z = Math.sign(particle.mesh.position.z) * (staticBounds - radius);
-            wallHitsPerFrame++;
-            if (isCountingCollisions) wallCollisionCount++;
-        }
+
+
 
         // Some visual feedback for pressure so users know how the pressure is drastically increased
         if (wallHitsPerFrame > 0) {
@@ -356,13 +378,39 @@ function updateUIElements() {
 
     const volume = (widthNM * nmToMeters) * (heightNM * nmToMeters) * (depthNM * nmToMeters);
 
-    const pressure = (n * R * T) / volume;
-    const pressureKPA = pressure / 1000;
-    const pressureATM = pressure / 101325;
+    const pressurePa = (n * R * T) / volume;
+    const pressureATM = pressurePa / 101325;
+    currentPressure = pressureATM;
+
+    let displayPressure = 0;
+    const pUnit = pressureUnitSelector.value;
+    if(pUnit === 'atm'){
+        displayPressure = pressureATM;
+    } else if(pUnit === 'kPa'){
+        displayPressure = pressurePa / 1000;
+    } else if(pUnit === 'Pa'){
+        displayPressure = pressurePa;
+    } else if(pUnit === 'psi'){
+        displayPressure = pressureATM * 14.696;
+    }
+
+    let displayTemperature = 0;
+    const tUnit = temperatureUnitSelector.value;
+    if(tUnit === 'K'){
+        displayTemperature = T;
+    } else if(tUnit === 'C'){
+        displayTemperature = T - 273.15;
+    } else if(tUnit === 'F'){
+        displayTemperature = (T - 273.15) * (9 / 5) + 32;
+    }
     //console.log(pressure);
-    document.getElementById('pressure-display').textContent = pressureATM.toFixed(3);
-    document.getElementById('temp-display').textContent = T.toFixed(0);
-    document.getElementById('heavy-particles-display').textContent = n.toExponential(2);
+    pressureText.textContent = displayPressure.toFixed(3);
+    tempText.textContent = displayTemperature.toFixed(0);
+
+    let displayHeavyParticles = allParticlesH.length * Moles_Per_Particle;
+    let displayLightParticles = allParticlesL.length * Moles_Per_Particle;
+    document.getElementById('heavy-particles-display').textContent = displayHeavyParticles.toExponential(2);
+    document.getElementById('light-particles-display').textContent = displayLightParticles.toExponential(2);
 }
 function updateInputs(sliderId, inputId, callback) {
     const slider = document.getElementById(sliderId);
@@ -381,7 +429,6 @@ function updateTimeDisplay() {
     document.getElementById('time-elapsed').textContent = elaspedTime.toFixed(2);
 }
 function animate() {
-    requestAnimationFrame(animate);
     containerPressureIntensityIndicator *= 0.8;
     // Maybe try something pulsing maybe like the more the particles hit the bigger the pulse
     // Like those music visualalizers; <- Work on this tomorrow GN.
@@ -420,15 +467,40 @@ function animate() {
     }
 
     if (!isPaused) {
-        updateParticles();
-        document.getElementById('stepBtn').disabled = true;
-        elaspedTime += 0.016 * timeSpeed;
-        updateTimeDisplay();
+        stepButton.disabled = true;
+        const maxStepSize = 1;
+        const totalSteps = Math.ceil(timeSpeed / maxStepSize);
+        const dtPerStep = timeSpeed / totalSteps;
+
+        for (let i = 0; i < totalSteps; i++) {
+            updateParticles(dtPerStep);
+            elaspedTime += 0.01 * dtPerStep;
+
+            if (isCountingCollisions) {
+                collisionTimer += 0.01 * dtPerStep;
+            }
+        }
+        if (typeof updateTimeDisplay === 'function') {
+            updateTimeDisplay();
+        }
+        if (typeof updateUIElements === 'function') {
+            updateUIElements();
+        }
+        if (isCountingCollisions) {
+            wallCollisionCounterText.innerText = `Collisions: ${wallCollisionCount}`;
+        }
+        if (wallCollisionTimer && isCountingCollisions) {
+            wallCollisionTimer.innerText = collisionTimer.toFixed(2) + "s";
+        }
+    } else {
+        stepButton.disabled = false;
     }
-    else {
-        document.getElementById('stepBtn').disabled = false;
+    if(currentPressure >= maxPressure && !isExploded){
+        isExploded = true;
+        letCollisions = false;
+        warningPanel.style.display = 'flex';
     }
-    updateUIElements();
+    requestAnimationFrame(animate);
     controls.update();
     renderer.render(scene, camera);
 }
@@ -454,4 +526,5 @@ updateInputs('timeSpeed', 'timeSpeedDisplay', (val) => {
 });
 createParticles(parseFloat(amountParticlesSliderH.value), 'heavy');
 createParticles(parseFloat(amountParticlesSliderL.value), 'light');
+warningPanel.style.display = 'none';
 animate();
